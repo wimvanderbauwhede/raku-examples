@@ -1,78 +1,113 @@
 use v6;
 
-role RB {}
-role RT does RB {}
-role RF does RB {}
+# A simple role-based boolean type
+role OpinionatedBool {}
+role AbsolutelyTrue does OpinionatedBool {}
+role TotallyFalse does OpinionatedBool {}
 
-my RB \bt = RT;
+# In Raku, types are values, so this is OK
+my OpinionatedBool \bt = AbsolutelyTrue;
 
-# This is not necessary because the role body is empty.
-my RB \bi = RT.new;
+# This is not necessary because the role body is empty, and has actually disadvantages, see further
+my OpinionatedBool \bi = AbsolutelyTrue.new;
 
-multi sub p(RT $b) {
+# Pattern matching against the alternatives
+multi sub p(AbsolutelyTrue $b) {
     say 'True';
 }
-multi sub p(RF $b) {
+multi sub p(TotallyFalse $b) {
     say 'False';
 }
 
-p(bt);
-p(bi);
+# Trying it out:
+say "\nPattern matching with multi subs works for both type-as-value and instance:";
+p(bt); # prints True
+p(bi); # also prints True
 
-if (bt ~~ RT) {
+say "\nSmart matching against a type alternative works for the type-as-value case:";
+if (bt ~~ AbsolutelyTrue) {
     say 'True'
-} elsif (bt ~~ RF) {
+} elsif (bt ~~ TotallyFalse) {
+    say 'False'
+} else {
+say 'bt is neither True or False';
+}
+# It also works for the type-as-instance case
+say "\nSmart matching against a type alternative also works for the instance case:";
+if (bi ~~ AbsolutelyTrue) {
+    say 'True'
+} elsif (bi ~~ TotallyFalse) {
+    say 'False'
+} else {
+    say 'bi is neither True or False';
+}
+
+
+# Testing 'container identity', i.e. type identity
+say "\nComparison at type level (=:=) against a type alternative works for the type-as-value case:";
+
+if (bt =:= AbsolutelyTrue) {
+    say 'True'
+} elsif (bt =:= TotallyFalse) {
     say 'False'
 } else {
 say 'bt is neither True or False';
 }
 
-if (bt =:= RT) {
+# Testing 'value identity' also works because the type is a value
+say "\nComparison at value level (===) against a type alternative works for the type-as-value case:";
+if (bt === AbsolutelyTrue) {
     say 'True'
-} elsif (bt =:= RF) {
-    say 'False'
-} else {
-say 'bt is neither True or False';
-}
-
-if (bt === RT) {
-    say 'True'
-} elsif (bt === RF) {
+} elsif (bt === TotallyFalse) {
     say 'False'
 } else {
     say 'bt is neither True or False';
 }
 
-if (bi ~~ RT) {
+# However, none of the following works
+
+say "\nTesting an instance against a type with =:= or === does not work:";
+
+if (bi =:= AbsolutelyTrue) {
     say 'True'
-} elsif (bi ~~ RF) {
+} elsif (bi =:= TotallyFalse) {
     say 'False'
 } else {
-    say 'bi is neither True or False';
+    say '=:= does not work because bi is an instance, not a type'  ;
 }
 
-if (bi ~~ RT.new) {
+if (bi === AbsolutelyTrue) {
     say 'True'
-} elsif (bi ~~ RF.new) {
+} elsif (bi === TotallyFalse) {
     say 'False'
 } else {
-    say 'bi is neither True or False';
+    say '=== does not work because bi is an instance, not a type';
+}
+
+say "\nTesting against an instance of the type always fails:";
+
+if (bi ~~ AbsolutelyTrue.new) {
+    say 'True'
+} elsif (bi ~~ TotallyFalse.new) {
+    say 'False'
+} else {
+    say '~~ fails because the instances are different';
 }
 
 
-if (bi =:= RT.new) {
+if (bi =:= AbsolutelyTrue.new) {
     say 'True'
-} elsif (bi =:= RF.new) {
+} elsif (bi =:= TotallyFalse.new) {
     say 'False'
 } else {
-    say 'bi is neither True or False';
+    say '=:= fails because AbsolutelyTrue.new is an instance, not a type';
 }
 
-if (bi === RT.new) {
+if (bi === AbsolutelyTrue.new) {
     say 'True'
-} elsif (bi === RF.new) {
+} elsif (bi === TotallyFalse.new) {
     say 'False'
 } else {
-    say 'bi is neither True or False';
+    say '=== fails because the instances are different';
 }
 
