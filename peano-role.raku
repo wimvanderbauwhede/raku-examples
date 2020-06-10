@@ -3,8 +3,7 @@ use v6;
 # Peano numbers as a recursive sum type
 role Nat{}    
 role Z does Nat {}
-role S[Nat $n] does Nat {
-}  
+role S[Nat $n] does Nat {}  
 
 # Some instances
 my Nat \zero = Z;
