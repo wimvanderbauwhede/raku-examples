@@ -408,3 +408,65 @@ multi sub apply(Tag[ Str, LComb ] $t, Str $str --> MTup) is export {
 multi sub apply(Seq[ Array ] $ps, Str $str --> MTup) is export {
 	apply( sequence( $ps.combs), $str);
 }
+
+
+
+sub _remove_undefined_values(\ms) {
+    my \ms_  = grep !UndefinedMatch |ms ;
+    # in 
+    map {my \m =$_; 
+		if (m ~~ Match) {
+				m;
+		} elsif (m ~~ TaggedMatch) {
+				TaggedMatch[ m.tag ,_remove_undefined_values (m.matches)].new;
+		}
+	}, ms_;
+}
+
+sub _tagged_matches_only(Matches \ms --> Matches) {
+        my \ms_ =  grep TaggedMatch, ms; 
+        if (ms_.elems == 0) {             
+				ms ;
+            } else {
+                map TaggedMatch[ $_.tag, _tagged_matches_only( $_.matches)].new, ms_;
+			}
+}
+
+role TaggedEntry {}
+role Val[Str @v] does TaggedEntry {
+	has Str @.v=@v;
+} 
+role ValMap [ Hash \vm] does TaggedEntry { #String \k, TaggedEntry \te,
+	has %.vm = vm; 
+}
+
+# A list of TaggedMatch must be translated into a Map of TaggedEntry's
+sub _tagged_matches_to_map(Matches \ms --> TaggedEntry) {
+# if there are no TaggedMatch in ms, we should unpack the String from the Match and pack it into a Val [String]
+        my \ms_ =  grep TaggedMatch |ms.matches;
+		if (ms_.elems == 0) { 
+			Val[ map .match, ms].new;
+		} else  {
+			ValMap[ 
+				reduce  sub (\hm, \tm) {
+					my \t = tm.tag;
+					my \ms__ = tm.matches;
+					hm< t > =  _tagged_matches_to_map ms__ ;
+					hm;
+					}, %(), ms_
+				].new;
+		}
+}
+                
+sub getParseTree (\ms) {
+	my \ms1 = _remove_undefined_values ms;
+	my \ms2 =  _tagged_matches_only ms1;
+    my \ms3 = _tagged_matches_to_map ms2;
+    # in
+        if (ms3 ~~
+            ValMap) {
+				ms3.vm;
+			} else {
+				%();
+			}            
+}
