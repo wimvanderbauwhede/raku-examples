@@ -8,23 +8,33 @@ use v6;
 say "\nBool:\n";
 
 role BoolBB[\b] {
-    has $.unBoolBB = b;
+    has $!unBoolBB = b;
+    method unBoolBB_(\t,\f) {
+        b.(t,f)
+    }
 }
 
 my \true  = -> \t,\f { t }
-my \false = -> \t,\f { f }
+my \false = sub (\t,\f) { f }
 
 # Make a BB bool
-sub bbb(\tf) { BoolBB[ tf ].new };
+sub bbb(\tf --> BoolBB) { BoolBB[ tf ].new };
 
-my BoolBB \trueBB = bbb true; 
-my BoolBB \falseBB = bbb false; 
+my BoolBB \BBTrue = bbb true;
+my BoolBB \BBFalse = bbb false;
+
+my BoolBB \trueBB = BBTrue;
+my BoolBB \falseBB = BBFalse; 
 
 # Turn the BB bool into an actual bool
 sub bool(BoolBB \b --> Bool) { 
-    b.unBoolBB.( True, False) 
+
+    b.unBoolBB_( True, False) 
+    #    b.unBoolBB.( True, False) 
 }
 
+say bool BBTrue;
+say bool BBFalse;
 say bool trueBB;
 say bool falseBB;
 
@@ -33,6 +43,9 @@ say "\nMaybe:\n";
 
 role MayBB[ \mb ] {
     has $.unMayBB = mb; #:: forall a .  (b -> a) -- Just a -> a -- Nothing -> a
+    method unMayBB_(\j,\n) {
+        mb.(j,n);
+    }
 }
 
 # selectors
@@ -45,15 +58,16 @@ sub mbb (\jm) {
 }
 
 # final type constructors
-sub just(\v) {mbb( bbj v )}
-sub nothing {mbb( bbn )}
+sub Just(\v) {mbb( bbj v )}
+sub Nothing {mbb( bbn )}
 
 sub testBB(MayBB \mb --> Str) {
-    mb.unMayBB.( -> $x { "$x" }, -> { "NaN"} );
+    #mb.unMayBB.( -> $x { "$x" }, -> { "NaN"} );
+    mb.unMayBB_( -> $x { "$x" }, -> { "NaN"} );
 }
 
-my MayBB \mbb = just 42;
-my MayBB \mbbn = nothing;
+my MayBB \mbb = Just 42;
+my MayBB \mbbn = Nothing;
 
 say testBB mbb ;
 say testBB mbbn;
@@ -62,11 +76,14 @@ say testBB mbbn;
 say "\nPair:\n";
 
 role PairBB[ \p ] {
-    has $.unPairBB = p #:: forall a . (t1 -> t2 -> a) -> a
+    has $.unPairBB = p; #:: forall a . (t1 -> t2 -> a) -> a
+    method unPairBB_(\p_) {
+        p.(p_);
+    }
 }
 
 # To get the elements out of the pair
-sub fst( \p ){ p.unPairBB.(true) }
+sub fst( \p ){ p.unPairBB_(true) }
 sub snd( \p ){ p.unPairBB.(false) }
 
 # Final pair constructor
