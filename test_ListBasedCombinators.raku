@@ -1,6 +1,17 @@
 use v6;
 use ListBasedCombinators;
 
+sub seq {
+	my \ps = @_;
+	sequence( Array[LComb](ps) );
+	
+}
+
+sub choice_ {
+my \ps = @_;
+choice( Array[LComb](ps));
+
+} 
 my $str = 'hello, world';
 say apply word,$str;
 my $str2 = ';hello, world';
@@ -10,12 +21,13 @@ say apply word,$str2 ;
 #sequence(@ws);
 say "test seq";
 my $str3 = 'hello, world; answer = 42';
-my $ms = apply(
-	sequence( Array[LComb](
+my $ms = apply
+	#sequence( Array[LComb](
+		seq(
 		word, comma, word, 
 		semi, 
-		word, symbol('='),natural) ), $str3
-);
+		word, symbol('='),natural  ), $str3
+;
 multi sub defMatch(Match[Str] $m) { True }
 multi sub defMatch(UndefinedMatch $u) { False }
 
@@ -32,3 +44,37 @@ my $ms4 = apply(
 );
 say $ms4;
 say map {.match} ,grep Match[Str], |$ms4.matches;
+my \type_str = "integer(kind=8), ";
+my \test_parser = 
+  seq(
+    whiteSpace,
+    Tag[ "Type", word].new, 
+    word,
+    word,
+    symbol( "="),
+    natural
+  );
+
+my \type_parser =     
+    seq(
+        Tag[ "Type", word].new,
+        maybe( parens( 
+            choice_( [
+                Tag[ "Kind" ,natural].new,
+                seq(
+                    symbol( "kind"),
+                    symbol( "="),
+                    Tag[ "Kind", natural].new
+	    ) ] )))); 
+
+my $resh1 =  apply( test_parser, "   hello world   spaces =  7188 .");
+say $resh1.raku;
+my $resh2 = apply( type_parser, type_str);   
+my (\tpst,\tpstr,\tpms) = unmtup $resh2;   
+say tpms;
+# apply (sepBy (symbol "=>") word) "Int => Bool => String"    
+# apply (sequence [oneOf "aeiou", word]) "aTest"    
+#    let
+#        MTup (st,str,ms) = apply (sequence [word, symbol "=", word,parens word]) "answer = hello(world)"  
+# (st,str,ms)        
+# getParseTree tpms

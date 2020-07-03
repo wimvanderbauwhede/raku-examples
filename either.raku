@@ -19,8 +19,8 @@ sub small_int (Int $m --> Either[Int,Str]) {
 multi sub test (Left[Int,Str] $v) { say 'Left: '~$v.left }
 multi sub test (Right[Int,Str] $v) {say 'Right: '~$v.right }
 
-my $n = small_int(4); # Nothing
-my $m = small_int(12); # Just 12
+my $n = small_int(4); # Left
+my $m = small_int(12); # Right
 
 say $n;
 say $m;
@@ -30,7 +30,7 @@ say $m;
 test($n);
 test($m);
 
-my Either[Int,Str] \iv = Left[ 42,Str].new;
+my Either[Int,Str] \iv = Left[ 42, Str].new;
 my Either[Int,Str] \sv = Right[Int, 'forty-two'].new;
 say iv;
 say sv;

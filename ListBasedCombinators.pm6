@@ -20,7 +20,8 @@ sub greedyUpto (Str --> LComb) {...}
 sub upto (Str --> LComb) {...}
 sub many (LComb --> LComb) {...}
 sub many1 (LComb --> LComb) {...}
-sub choice ([LComb] --> LComb) {...}
+sub choice( Array[LComb] --> LComb) {...} 
+# sub choice ([LComb] --> LComb) {...}
 sub try (LComb --> LComb) {...}
 sub maybe (LComb --> LComb) {...}
 
@@ -33,9 +34,9 @@ role Matches {}
 role Match[Str $str] does Matches {
     has Str $.match=$str;
 } 
-role TaggedMatch[Str $tag, Matches @ms] does Matches {
+role TaggedMatch[Str $tag, Array[Matches] \ms] does Matches {
     has Str $.tag = $tag;
-    has Matches @.matches = @ms;
+    has Matches @.matches = ms;
 } 
 role UndefinedMatch does Matches {}
 # convenience
@@ -55,7 +56,7 @@ role MTup[Int $st,Str $rest,Array[Matches] $ms] {
 	has Str $.rest=$rest;
 	has Array[Matches] $.matches=$ms;
 }
-sub unmtup (MTup $t --> Array) {
+our sub unmtup (MTup $t --> Array) {
 	[$t.status,$t.rest,$t.matches];
 }
 # Generic Tuple 
@@ -297,7 +298,7 @@ sub whileMatches( LComb \p, LComb \sep, MTup \mtup --> MTup) {
 	}
 }
 
-sub oneOf (Str \patt_str --> LComb) is export { # TODO
+sub oneOf (Str \patt_str --> LComb) is export { 
     Comb[ sub ( \str1 ){ 
 		my \patt_lst = patt_str.split('');
 		loopOver( str1, patt_lst);
@@ -371,14 +372,102 @@ sub doMany( \p, \str1, \m1) {
 	}
 }
 
+# This parser parses anything up to the first occurrence of a given literal and trailing whitespace
+sub upto (Str \lit_str --> LComb) is export {
+    Comb[ 
+			sub ( Str \str1 --> MTup ) {
+				str1 ~~ /$<m> = [ ^.*? ] \s* lit_str \s* $<r> = [ .* ]/;
+				my \mm = ~$<m>;
+				my \str2 = ~$<r>;
+				
+				if (mm ne "") { 
+					MTup[ 1, str2,  Array[Matches].new( mm ) ].new;
+				} else {
+					MTup[ 0, str1, undef-match ].new;
+				}
+			}
+	].new;
+}
+sub greedyUpto (Str \lit_str --> LComb) is export {
+    Comb[ 
+			sub ( Str \str1 --> MTup ) {
+				str1 ~~ /$<m> = [ ^.* ] \s* lit_str \s* $<r> = [ .* ]/;
+				my \mm = ~$<m>;
+				my \str2 = ~$<r>;
+				
+				if (mm ne "") { 
+					MTup[ 1, str2,  Array[Matches].new( mm ) ].new;
+				} else {
+					MTup[ 0, str1, undef-match ].new;
+				}
+			}
+	].new;
+}
 
-sub upto (Str \patt --> LComb) is export {...} # TODO
-sub greedyUpto (Str \patt --> LComb) is export {...} # TODO
 
-sub choice ([LComb] --> LComb) is export {...} # TODO
-sub try (LComb --> LComb) is export {...} # TODO
-sub maybe (LComb --> LComb) is export {...} # TODO
+# -- This parser parses anything up to the last occurrence of a given literal and trailing whitespace
+# greedyUpto lit_str =
+#     Comb $ \str -> let
+#             (_,m,str') = str =~ "^(.*)\\s*lit_str\\s*" :: (String,String,String)
+#         in
+#         if m /= "" then 
+#             MTup ( 1, str', [Match m] )
+#         else
+#             MTup ( 0, str, [UndefinedMatch] )
 
+
+
+sub choice( Array[LComb] \parsers --> LComb) is export { 
+    Comb[ 
+		sub (Str \strn --> MTup) {
+			choice_helper( parsers, strn);
+		}
+	].new;
+}
+
+multi sub choice_helper( [], \strn){ 
+	MTup[0, strn, empty-match].new; 
+}
+multi sub choice_helper( \pps, \strn ){
+	my \p = pps.head;
+	my \ps = pps.tail;
+	my \res = apply( p, strn);
+	my (\status, \str_, \matches) = unmtup(res);    
+	if (status == 1) {
+		MTup[status, str_, matches].new;
+	} else { 
+		choice_helper( ps, strn);
+	}
+}
+
+sub try (LComb \p --> LComb) is export {
+    Comb[ 
+		sub ( Str \strn --> MTup){
+			 my \res = apply( p, strn);
+			 my (\status, \rest, \matches) = unmtup(res);
+            if (status==1) {
+				MTup[1, rest, matches].new;
+			} else {
+				MTup[0, strn, undef-match].new;
+			}
+		}
+	].new
+}
+
+sub maybe (LComb \p --> LComb) is export {
+
+    Comb[ 
+		sub ( Str \strn --> MTup){
+			 my \res = apply( p, strn);
+			 my (\status, \rest, \matches) = unmtup(res);
+            if (status==1) {
+				MTup[1, rest, matches].new;
+			} else {
+				MTup[1, strn, undef-match].new;
+			}
+		}
+	].new
+}
 
 sub whiteSpace (--> LComb) is export {
     Comb[ sub  (Str \str1 --> MTup) {        
@@ -398,13 +487,75 @@ multi sub apply(Tag[ Str, LComb ] $t, Str $str --> MTup) is export {
 	my MTup $res = apply($t.comb,$str); 
 	my $status=$res.status;
 	my $str2=$res.rest;
-	my @mms = $res.matches;
+	my Array[Matches] \mms = $res.matches;
 
-	my $tag = $t.tag;
-	my $tm = TaggedMatch[$tag,@mms].new;
+	my Str $tag = $t.tag;
+	my $tm = TaggedMatch[$tag,mms].new;
 	my Matches @tms = ($tm);
 	MTup[$status,$str2,@tms].new;
 }
 multi sub apply(Seq[ Array ] $ps, Str $str --> MTup) is export {
 	apply( sequence( $ps.combs), $str);
+}
+
+
+
+sub _remove_undefined_values(\ms) {
+    my \ms_  = grep !UndefinedMatch |ms ;
+    # in 
+    map {my \m =$_; 
+		if (m ~~ Match) {
+				m;
+		} elsif (m ~~ TaggedMatch) {
+				TaggedMatch[ m.tag ,_remove_undefined_values (m.matches)].new;
+		}
+	}, ms_;
+}
+
+sub _tagged_matches_only(Matches \ms --> Matches) {
+        my \ms_ =  grep TaggedMatch, ms; 
+        if (ms_.elems == 0) {             
+				ms ;
+            } else {
+                map TaggedMatch[ $_.tag, _tagged_matches_only( $_.matches)].new, ms_;
+			}
+}
+
+role TaggedEntry {}
+role Val[Str @v] does TaggedEntry {
+	has Str @.v=@v;
+} 
+role ValMap [ Hash \vm] does TaggedEntry { #String \k, TaggedEntry \te,
+	has %.vm = vm; 
+}
+
+# A list of TaggedMatch must be translated into a Map of TaggedEntry's
+sub _tagged_matches_to_map(Matches \ms --> TaggedEntry) {
+# if there are no TaggedMatch in ms, we should unpack the String from the Match and pack it into a Val [String]
+        my \ms_ =  grep TaggedMatch |ms.matches;
+		if (ms_.elems == 0) { 
+			Val[ map .match, ms].new;
+		} else  {
+			ValMap[ 
+				reduce  sub (\hm, \tm) {
+					my \t = tm.tag;
+					my \ms__ = tm.matches;
+					hm< t > =  _tagged_matches_to_map ms__ ;
+					hm;
+					}, %(), ms_
+				].new;
+		}
+}
+                
+sub getParseTree (\ms) {
+	my \ms1 = _remove_undefined_values ms;
+	my \ms2 =  _tagged_matches_only ms1;
+    my \ms3 = _tagged_matches_to_map ms2;
+    # in
+        if (ms3 ~~
+            ValMap) {
+				ms3.vm;
+			} else {
+				%();
+			}            
 }
