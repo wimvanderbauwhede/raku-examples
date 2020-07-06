@@ -201,7 +201,6 @@ sub ppTermBB(TermBB \t --> Str){
 
 # evalTermBB :: H.Map String Int -> H.Map String Int -> TermBB -> Int
 sub evalTermBB( %vars,  %pars, \t) {
-
     t.unTermBB( 
         -> \x {%vars{x}}, 
         -> \x {%pars{x}},
@@ -212,7 +211,24 @@ sub evalTermBB( %vars,  %pars, \t) {
     );
 }
 
+
+# Now let's combine them!
+sub evalAndppTermBB(%vars,  %pars, TermBB \t ){ 
+    t.unTermBB( 
+        -> \x {[%vars{x},x]}, 
+        -> \x {[%pars{x},x]},
+        -> \x {[x,"{x}"]},
+        -> \t,\m {[t[0] ** m, t[1] ~ "^{m}"] },
+        -> \ts {  reduce { [ $^a[0]+$^b[0], $^a[1] ~ " + " ~  $^b[1]] }, [0,"0"],  |ts}, 
+        -> \ts {  reduce { [ $^a[0]*$^b[0], $^a[1] ~ " * " ~  $^b[1]] }, [1,"1"],  |ts}
+    );
+}
+
+
 say ppTermBB( qtermbb);
 say evalTermBB(
+    {"x" => 2}, {"a" =>2,"b"=>3,"c"=>4},  qtermbb
+);
+say evalAndppTermBB(
     {"x" => 2}, {"a" =>2,"b"=>3,"c"=>4},  qtermbb
 );
