@@ -4,7 +4,8 @@ use v6;
 # The following is purely as documentation, none of these prototypes are needed.
 # This must be declared
 role LComb {...}
-sub sequence (LComb --> LComb) {...}
+sub sequence (Array[LComb] --> LComb) {...}
+# sub sequence_ (LComb --> LComb) {...}
 sub parens (LComb --> LComb)  {...}
 sub word (--> LComb) {...}
 sub natural (--> LComb) {...}
@@ -20,6 +21,7 @@ sub greedyUpto (Str --> LComb) {...}
 sub upto (Str --> LComb) {...}
 sub many (LComb --> LComb) {...}
 sub many1 (LComb --> LComb) {...}
+# sub choice () {...}
 sub choice( Array[LComb] --> LComb) {...} 
 # sub choice ([LComb] --> LComb) {...}
 sub try (LComb --> LComb) {...}
@@ -93,11 +95,11 @@ role Tag[Str $tag,LComb $comb] does LComb {
 ## List-based Combinators
 
 # The most important one
-sub sequence (LComb @combs --> LComb) is export {
+sub sequence_ (LComb @combs --> LComb) {
 	Comb[
 		sub (Str $str --> MTup) {
 
-			#say "* sequence( '$str' )" if $V;
+			#say "* sequence_( '$str' )" if $V;
 			my Sub $f = sub ( MTup $acc, LComb $p --> MTup) {
 				my (Int $st1, Str $str1, Array[Matches] $ms1) = unmtup($acc);
 				my MTup $res = apply($p,$str1);
@@ -417,7 +419,7 @@ sub greedyUpto (Str \lit_str --> LComb) is export {
 
 
 
-sub choice( Array[LComb] \parsers --> LComb) is export { 
+sub choice_( Array[LComb] \parsers --> LComb) is export { 
     Comb[ 
 		sub (Str \strn --> MTup) {
 			choice_helper( parsers, strn);
@@ -495,66 +497,128 @@ multi sub apply(Tag[ Str, LComb ] $t, Str $str --> MTup) is export {
 	MTup[$status,$str2,@tms].new;
 }
 multi sub apply(Seq[ Array ] $ps, Str $str --> MTup) is export {
-	apply( sequence( $ps.combs), $str);
+	apply( sequence_( $ps.combs), $str);
 }
 
 
 
-sub _remove_undefined_values(\ms) {
-    my \ms_  = grep !UndefinedMatch |ms ;
-    # in 
-    map {my \m =$_; 
+sub _remove_undefined_values(Array[Matches] \ms --> Array[Matches]) {
+	say '_remove_undefined_values ms:',ms.raku;
+    my \res  = grep {!($_ ~~ UndefinedMatch)}, |ms ;
+	my  \ms_ = Array[Matches].new(res);	
+    # in 	
+	say '_remove_undefined_values ms_:',ms_.raku;
+    my \tms_res = map {my \m =$_; 
+	say m.raku;
 		if (m ~~ Match) {
 				m;
 		} elsif (m ~~ TaggedMatch) {
 				TaggedMatch[ m.tag ,_remove_undefined_values (m.matches)].new;
 		}
-	}, ms_;
+	}, |ms_;
+	say 'tms_res:',tms_res.raku;
+	my \tms = Array[Matches].new(tms_res);
+	say 'tms:',tms.raku;
+	tms;
 }
+# ms:Array[Matches].new(
+# 	TaggedMatch[Str,Array[Matches]].new(
+# 		tag => "Type", matches => Array[Matches].new(
+# 			Match[Str].new(
+# 				match => "integer")
+# 				)
+# 				), 
+# 	Match[Str].new(
+# 		match => "kind"), 
+# 	Match[Str].new(
+# 		match => "="), 
+# 	TaggedMatch[Str,Array[Matches]].new(
+# 		tag => "Kind", matches => Array[Matches].new(
+# 			Match[Str].new(
+# 				match => "8"
+# 				)
+# 			)
+# 		)
+# 	)
 
-sub _tagged_matches_only(Matches \ms --> Matches) {
-        my \ms_ =  grep TaggedMatch, ms; 
+sub _tagged_matches_only(Array[Matches] \ms --> Array[Matches]) {
+        my \ms_res =  grep TaggedMatch, |ms; 
+		my \ms_ = Array[Matches].new(ms_res);
         if (ms_.elems == 0) {             
 				ms ;
-            } else {
-                map TaggedMatch[ $_.tag, _tagged_matches_only( $_.matches)].new, ms_;
-			}
+		} else {
+			# say 'ms_:',ms_.raku;
+			my \tms_res = map {TaggedMatch[ $_.tag, _tagged_matches_only( $_.matches)].new}, |ms_;
+			my \tms = Array[Matches].new(tms_res);
+			# say 'tms:',tms.raku;
+			tms;
+		}
 }
 
 role TaggedEntry {}
 role Val[Str @v] does TaggedEntry {
-	has Str @.v=@v;
+	has Str @.val=@v;
 } 
 role ValMap [ Hash \vm] does TaggedEntry { #String \k, TaggedEntry \te,
-	has %.vm = vm; 
+	has %.valmap = vm; 
 }
 
 # A list of TaggedMatch must be translated into a Map of TaggedEntry's
-sub _tagged_matches_to_map(Matches \ms --> TaggedEntry) {
+# Array[Matches].new(
+# 	TaggedMatch[Str,Array[Matches]].new(
+# 		tag => "Type", 
+# 		matches => Array[Matches].new(
+# 			Match[Str].new(match => "integer")
+# 			)
+# 			), 
+# 	TaggedMatch[Str,Array[Matches]].new(
+# 		tag => "Kind", 
+# 		matches => Array[Matches].new(
+# 			Match[Str].new(match => "8"))))
+
+sub _tagged_matches_to_map(Array[Matches] \ms --> TaggedEntry) {
 # if there are no TaggedMatch in ms, we should unpack the String from the Match and pack it into a Val [String]
-        my \ms_ =  grep TaggedMatch |ms.matches;
+# say "\n _tagged_matches_to_map : ms: ", ms.raku, "\n";
+        my \ms_ =  grep TaggedMatch, |ms;#.matches;		
 		if (ms_.elems == 0) { 
-			Val[ map .match, ms].new;
+			# say 'MS:',ms.raku;
+			Val[ Array[Str].new(map {$_.match}, |ms)].new;
 		} else  {
 			ValMap[ 
 				reduce  sub (\hm, \tm) {
+					# say 'TM:',tm.raku;
 					my \t = tm.tag;
 					my \ms__ = tm.matches;
-					hm< t > =  _tagged_matches_to_map ms__ ;
+					hm{ t } =  _tagged_matches_to_map( ms__) ;
 					hm;
-					}, %(), ms_
+					}, %(), |ms_
 				].new;
 		}
 }
+
+# A hack so I can write sequence(p1,p2,...) and it typechecks
+sub sequence (*@ps) is export {
+	sequence_( Array[LComb](@ps) );	
+}
+# A hack so I can write choice(p1,p2,...) and it typechecks
+sub choice (*@ps where { .all ~~ LComb} ) is export {
+	choice_( Array[LComb](@ps));
+}  
+
+sub tag(Str \t, LComb \p) is export {
+	Tag[t,p].new;
+}
+
                 
-sub getParseTree (\ms) {
+sub getParseTree (\ms) is export {
+	# say "\n",'getParseTree ms:' , ms.raku,"\n";
 	my \ms1 = _remove_undefined_values ms;
+	# say 'ms1:', ms1.raku;
 	my \ms2 =  _tagged_matches_only ms1;
     my \ms3 = _tagged_matches_to_map ms2;
     # in
-        if (ms3 ~~
-            ValMap) {
-				ms3.vm;
+        if (ms3 ~~ ValMap) {
+				ms3.valmap;
 			} else {
 				%();
 			}            
