@@ -119,10 +119,7 @@ role Mult [Array[Term] \ts] does Term {
     has Array[Term] $.terms = ts;
 }
 
-#  The questions are: 
-#  (1) what is the BB encoding 
-#  (2) how do we go from the type to the BB encoding
-
+# The BB encoding of Term
 role TermBB[\f] {
     method unTermBB(
         \var,\par,\const,\pow,\add,\mult 
@@ -131,6 +128,7 @@ role TermBB[\f] {
     }
 }
 
+# The little helpers
 sub _var(Str \s --> TermBB) { 
     TermBB[ 
         sub (\v, \c, \n, \p, \a, \m) { v.(s) }
@@ -141,59 +139,40 @@ sub _par(Str \s --> TermBB) {
         sub (\v, \c, \n, \p, \a, \m) { c.(s) }
     ].new;
     }
-
 sub _cons(Int \i --> TermBB) { 
     TermBB[ 
         sub (\v, \c, \n, \p, \a, \m) { n.(i) }
     ].new;
     }    
-
-# pow :: TermBB -> Int -> TermBB
-# sub _pow t i  =TermBB $ \v c n p a m -> p (unTermBB t v c n p a m) i
-sub _pow( TermBB \t, Int \i) {
+sub _pow( TermBB \t, Int \i --> TermBB) {
     TermBB[  sub (\v, \c, \n, \p, \a, \m) { 
         p.( t.unTermBB( v, c, n, p, a, m ), i);
     }
     ].new;
 }
-# add :: [TermBB] -> TermBB
-# sub _add ts = TermBB $ \v c n p a m -> a ( map (\t -> unTermBB t v c n p a m ) ts )
-sub _add( @ts) {
+sub _add(  @ts --> TermBB) {
     TermBB[  sub (\v, \c, \n, \p, \a, \m) { 
         a.( map {$_.unTermBB( v, c, n, p, a, m )}, @ts )
     }
     ].new;
 }
-# mult  :: [TermBB] -> TermBB
-sub _mult( @ts) {
+sub _mult(  @ts --> TermBB) {
     TermBB[  sub (\v, \c, \n, \p, \a, \m) { 
         m.( map {$_.unTermBB( v, c, n, p, a, m )}, @ts )
     }
     ].new;
 }
+
+# Turn a Term into a BB Term
 multi sub termToBB(Var \t) { _var(t.var)}
 multi sub termToBB(Par \c) { _par( c.par)}
 multi sub termToBB(Const \n) {_cons(n.const)}
-# multi sub termToBB(Pow \pw ->  pow (termToBB t1) n
+multi sub termToBB(Pow \pw){ _pow( termToBB(pw.term), pw.exp)}
+multi sub termToBB(Add \t){ _add( map {termToBB($_) }, |t.terms )}
+multi sub termToBB(Mult \t){ _mult(map {termToBB($_)}, |t.terms)}
 
-multi sub termToBB(Pow \pw){ 
-    _pow( termToBB(pw.term), pw.exp);
-    }
-# multi sub termToBB(Add ts -> add (map termToBB ts)
-
-multi sub termToBB(Add \t){ 
-    # say 'HERE:' ~ t.terms.raku;
-    # say t.terms.elems;
-     my \bbt = map {termToBB($_) }, |(t.terms);
-    # say 'HERE: ',bbt.raku;exit;
-    _add(bbt)
-    }
-multi sub termToBB(Mult \t){ 
-     _mult(map {termToBB($_)}, |t.terms)
-    }
-
+# Example: 
 #   a*x^2 + b*x + x    
-# qterm :: Term
 my \qterm = Add[ 
     Array[Term].new(
     Mult[ Array[Term].new(Par[ "a"].new, Pow[ Var[ "x"].new, 2].new) 
@@ -204,31 +183,36 @@ my \qterm = Add[
     Par[ "c"].new
     )
     ].new;
+
 say qterm.raku;
 my \qtermbb = termToBB( qterm);
 say qtermbb.raku;
 
-# ppTermBB :: TermBB -> String
-sub ppTermBB(TermBB \t ){ 
-#     where
-        sub var( \x) { x }
-        sub par( \x) { x }
-        sub const( $x) { "$x" }
-        sub pow( \t,  $m) { t ~ "^$m" }
-        sub add(@ts) { join( " + ", @ts) }
-        sub mult(@ts) { join( " * ", @ts) }
+# A pretty-printer
+sub ppTermBB(TermBB \t --> Str){ 
+        sub var( \x ) { x }
+        sub par( \x ) { x }
+        sub const( $x ) { "$x" }
+        sub pow( \t, $m ) { t ~ "^$m" } 
+        sub add( @ts ) { join( " + ", @ts) }
+        sub mult( @ts ) { join( " * ", @ts) }
         t.unTermBB( &var, &par, &const, &pow, &add, &mult);
 }
 
 # evalTermBB :: H.Map String Int -> H.Map String Int -> TermBB -> Int
-# sub evalTermBB vars pars t = unTermBB t var par const pow add mult
-#     where
-#         var x = H.findWithDefault 0 x vars
-#         par x = H.findWithDefault 0 x pars
-#         const c = c
-#         pow t m = t ^ m
-#         add = sum 
-#         mult  = product
+sub evalTermBB( %vars,  %pars, \t) {
+
+    t.unTermBB( 
+        -> \x {%vars{x}}, 
+        -> \x {%pars{x}},
+        -> \x {x},
+        -> \t,\m { t ** m},
+        -> \ts { [+] ts},
+        -> \ts { [*] ts}
+    );
+}
 
 say ppTermBB( qtermbb);
-# say evalTermBB (H.fromList [("x",2)]) (H.fromList [("a",2),("b",3),("c",4)])  qtermbb;
+say evalTermBB(
+    {"x" => 2}, {"a" =>2,"b"=>3,"c"=>4},  qtermbb
+);
