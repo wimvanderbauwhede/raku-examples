@@ -150,12 +150,14 @@ sub _pow( TermBB \t, Int \i --> TermBB) {
     }
     ].new;
 }
-sub _add(  @ts --> TermBB) {
+# Properly typed
+sub _add( Array[TermBB] \ts --> TermBB) {
     TermBB[  sub (\v, \c, \n, \p, \a, \m) { 
-        a.( map {$_.unTermBB( v, c, n, p, a, m )}, @ts )
+        a.( map {$_.unTermBB( v, c, n, p, a, m )}, ts )
     }
     ].new;
 }
+# But this works as well
 sub _mult(  @ts --> TermBB) {
     TermBB[  sub (\v, \c, \n, \p, \a, \m) { 
         m.( map {$_.unTermBB( v, c, n, p, a, m )}, @ts )
@@ -163,12 +165,17 @@ sub _mult(  @ts --> TermBB) {
     ].new;
 }
 
+sub typed-map (\T,\lst,&f) {
+    Array[T].new(map {f($_) }, |lst )
+}
+
 # Turn a Term into a BB Term
 multi sub termToBB(Var \t) { _var(t.var)}
 multi sub termToBB(Par \c) { _par( c.par)}
 multi sub termToBB(Const \n) {_cons(n.const)}
 multi sub termToBB(Pow \pw){ _pow( termToBB(pw.term), pw.exp)}
-multi sub termToBB(Add \t){ _add( map {termToBB($_) }, |t.terms )}
+# multi sub termToBB(Add \t){ _add( Array[TermBB].new(map {termToBB($_) }, |t.terms ))}
+multi sub termToBB(Add \t){ _add( typed-map( TermBB, t.terms, &termToBB ))}
 multi sub termToBB(Mult \t){ _mult(map {termToBB($_)}, |t.terms)}
 
 # Example: 
@@ -194,8 +201,8 @@ sub ppTermBB(TermBB \t --> Str){
         sub par( \x ) { x }
         sub const( $x ) { "$x" }
         sub pow( \t, $m ) { t ~ "^$m" } 
-        sub add( @ts ) { join( " + ", @ts) }
-        sub mult( @ts ) { join( " * ", @ts) }
+        sub add( \ts ) { join( " + ", ts) }
+        sub mult( \ts ) { join( " * ", ts) }
         t.unTermBB( &var, &par, &const, &pow, &add, &mult);
 }
 
@@ -219,11 +226,10 @@ sub evalAndppTermBB(%vars,  %pars, TermBB \t ){
         -> \x {[%pars{x},x]},
         -> \x {[x,"{x}"]},
         -> \t,\m {[t[0] ** m, t[1] ~ "^{m}"] },
-        -> \ts {  reduce { [ $^a[0]+$^b[0], $^a[1] ~ " + " ~  $^b[1]] }, [0,"0"],  |ts}, 
-        -> \ts {  reduce { [ $^a[0]*$^b[0], $^a[1] ~ " * " ~  $^b[1]] }, [1,"1"],  |ts}
+        -> \ts { reduce { [ $^a[0] + $^b[0], $^a[1] ~ " + " ~ $^b[1]] }, ts[0],  |ts[1..*]}, 
+        -> \ts { reduce { [ $^a[0] * $^b[0], $^a[1] ~ " * " ~ $^b[1]] }, ts[0],  |ts[1..*]}
     );
 }
-
 
 say ppTermBB( qtermbb);
 say evalTermBB(
