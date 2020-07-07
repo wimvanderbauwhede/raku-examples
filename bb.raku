@@ -180,7 +180,7 @@ multi sub termToBB(Mult \t){ _mult(map {termToBB($_)}, |t.terms)}
 
 # Example: 
 #   a*x^2 + b*x + x    
-my \qterm = Add[ 
+my \qterm1 = Add[ 
     Array[Term].new(
     Mult[ Array[Term].new(Par[ "a"].new, Pow[ Var[ "x"].new, 2].new) 
         ].new,
@@ -190,6 +190,21 @@ my \qterm = Add[
     Par[ "c"].new
     )
     ].new;
+#   x^3 + 1    
+my \qterm2 = Add[ 
+    Array[Term].new(
+    Pow[ Var[ "x"].new, 3].new, 
+    Const[ 1].new
+    )
+    ].new;
+
+#   qterm1 * qterm2    
+my \qterm = Mult[ 
+    Array[Term].new(
+        qterm1, qterm2
+    )
+    ].new;
+
 
 say qterm.raku;
 my \qtermbb = termToBB( qterm);
@@ -201,7 +216,7 @@ sub ppTermBB(TermBB \t --> Str){
         sub par( \x ) { x }
         sub const( $x ) { "$x" }
         sub pow( \t, $m ) { t ~ "^$m" } 
-        sub add( \ts ) { join( " + ", ts) }
+        sub add( \ts ) { "("~join( " + ", ts)~")" }
         sub mult( \ts ) { join( " * ", ts) }
         t.unTermBB( &var, &par, &const, &pow, &add, &mult);
 }
@@ -226,9 +241,13 @@ sub evalAndppTermBB(%vars,  %pars, TermBB \t ){
         -> \x {[%pars{x},x]},
         -> \x {[x,"{x}"]},
         -> \t,\m {[t[0] ** m, t[1] ~ "^{m}"] },
-        -> \ts { reduce { [ $^a[0] + $^b[0], $^a[1] ~ " + " ~ $^b[1]] }, ts[0],  |ts[1..*]}, 
+        -> \ts { 
+            my \p = 
+        reduce { [ $^a[0] + $^b[0], $^a[1] ~ " + " ~ $^b[1]] }, ts[0],  |ts[1..*];
+        [ p[0], "("~p[1]~")" ]; 
+        }, 
         -> \ts { reduce { [ $^a[0] * $^b[0], $^a[1] ~ " * " ~ $^b[1]] }, ts[0],  |ts[1..*]}
-    );
+    )
 }
 
 say ppTermBB( qtermbb);
