@@ -100,10 +100,10 @@ say snd bbp ;
 #  Now let's try something like a*x^2+b*x+c
 role Term {}
 role Var [Str \v] does Term {
-    has Str $.var = v
+    has Str $.var = v;
 }
 role Par [Str \p] does Term {
-    has Str $.par = p
+    has Str $.par = p;
 }
 role Const [Int \c] does Term {
     has Int $.const = c;
@@ -257,3 +257,22 @@ say evalTermBB(
 say evalAndppTermBB(
     {"x" => 2}, {"a" =>2,"b"=>3,"c"=>4},  qtermbb
 );
+
+# This is for parsing into AST, the link between Term and the TaggedEntry
+role TaggedEntry {}
+role Val[Str @v] does TaggedEntry {
+	has Str @.val=@v;
+} 
+# valmap :: [(String,TaggedEntry)]
+role ValMap [  @vm] does TaggedEntry { #String \k, TaggedEntry \te,
+	has @.valmap = @vm; 
+}
+multi sub taggedEntryToTerm (Var ,\val_strs) { Var[ val_strs.val.head].new }
+multi sub taggedEntryToTerm (Par ,\par_strs) { Par[par_strs.val.head].new }
+multi sub taggedEntryToTerm (Const ,\const_strs) {Const[ Int(const_strs.val.head)].new } 
+# multi sub taggedEntryToTerm (Pow , ValMap [t1,(_,Val [v2])]) { Pow[ taggedEntryToTerm(...,....), Int(...)].new}        
+# multi sub taggedEntryToTerm (Add , ValMap hmap) = Add $ map taggedEntryToTerm hmap
+# multi sub taggedEntryToTerm (Mult , ValMap hmap) = Mult $ map taggedEntryToTerm hmap
+my Str @val_strs = "42";
+my \v = taggedEntryToTerm(Const, Val[@val_strs].new);
+say v.raku; 
