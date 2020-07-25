@@ -1,0 +1,76 @@
+"Boehm-Berarducci's paper has many great insights. Alas, the generality of the presentation makes the paper very hard to understand. It has a Zen-like quality: it is incomprehensible unless you already know its results."
+(http://okmij.org/ftp/tagless-final/course/Boehm-Berarducci.html)
+#haskell
+
+With that warning, here is my implementation of a Maybe type in Boehm-Berarducci encoding:
+
+newtype MayBB b = MayBB {
+    unMayBB :: forall a . 
+    (b -> a)
+    -> a
+    -> a
+}
+
+and I think it's beautiful. 
+
+With these little helpers:
+
+just x = \j' n' -> j' x
+nothing = \j' n' -> n'
+      
+we get the following:
+
+-- Plain Maybe
+mb :: Maybe Int        
+mb = Just 42
+
+mbn :: Maybe Int
+mbn = Nothing
+
+-- BB Maybe
+mbb:: MayBB Int
+mbb = MayBB $ just 42
+
+mbbn :: MayBB Int
+mbbn = MayBB nothing
+
+And why do I think this is nice? Because I have encoded a sum type:
+
+data Maybe b = Just b | Nothing
+
+as a single function type which, if anything, is more like a product type. The record type syntax is just to provide a label for easy access to the function.
+
+There are other reasons why the Boehm-Berarducci encoding, but first I'd like to give another example: the encoding of the Boolean type
+
+data Bool = True | False
+
+is 
+
+newtype BoolBB = 
+  BoolBB (forall a . a -> a -> a)
+
+So this is a function of two arguments that returns something of the same type. With two selectors very similar to those for Maybe:
+
+true = \t f -> t
+false = \t f -> f
+
+we can write
+
+trueBB = BoolBB true
+falseBB = BoolBB false
+
+
+Now you probably wonder, what good is all this anyway? Yu're thinking, "I'm a very busy man, I have other cases besides this one."
+There are many uses for this encoding but what we are using it for is to compose interpreters. Essentially, if your algebraic data type represents an abstract syntax tree, then the BB encoding of it is a universal interpreter. Every particular implementation of the function is an interpreter, and they are composable.
+
+#haskell
+
+To be perfectly honest, I'm only doing all this so I can re-implement it in #rakulang. Turns out it is really easy too:
+
+role BoolBB[\b] {
+    method unBoolBB(\t,\f) {
+        b.(t,f);
+   }
+}
+
+and because Raku is gradually typed, the polymorphism is of course for free.
