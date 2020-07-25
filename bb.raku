@@ -242,11 +242,18 @@ sub evalAndppTermBB(%vars,  %pars, TermBB \t ){
         -> \x {[x,"{x}"]},
         -> \t,\m {[t[0] ** m, t[1] ~ "^{m}"] },
         -> \ts { 
-            my \p = 
-        reduce { [ $^a[0] + $^b[0], $^a[1] ~ " + " ~ $^b[1]] }, ts[0],  |ts[1..*];
-        [ p[0], "("~p[1]~")" ]; 
+            my \p = reduce { 
+                [ $^a[0] + $^b[0], 
+                $^a[1] ~ " + " ~ $^b[1]] 
+            }, ts[0],  |ts[1..*];
+            [ p[0], "("~p[1]~")" ]; 
         }, 
-        -> \ts { reduce { [ $^a[0] * $^b[0], $^a[1] ~ " * " ~ $^b[1]] }, ts[0],  |ts[1..*]}
+        -> \ts { 
+            reduce { 
+                [ $^a[0] * $^b[0], 
+                $^a[1] ~ " * " ~ $^b[1]] 
+                }, ts[0],  |ts[1..*]
+            }
     )
 }
 
@@ -267,12 +274,23 @@ role Val[Str @v] does TaggedEntry {
 role ValMap [  @vm] does TaggedEntry { #String \k, TaggedEntry \te,
 	has @.valmap = @vm; 
 }
-multi sub taggedEntryToTerm (Var ,\val_strs) { Var[ val_strs.val.head].new }
-multi sub taggedEntryToTerm (Par ,\par_strs) { Par[par_strs.val.head].new }
-multi sub taggedEntryToTerm (Const ,\const_strs) {Const[ Int(const_strs.val.head)].new } 
-# multi sub taggedEntryToTerm (Pow , ValMap [t1,(_,Val [v2])]) { Pow[ taggedEntryToTerm(...,....), Int(...)].new}        
-# multi sub taggedEntryToTerm (Add , ValMap hmap) = Add $ map taggedEntryToTerm hmap
-# multi sub taggedEntryToTerm (Mult , ValMap hmap) = Mult $ map taggedEntryToTerm hmap
+
+multi sub taggedEntryToTerm (["Var", TaggedEntry \val_strs]) { Var[ val_strs.val.head].new }
+multi sub taggedEntryToTerm (["Par", TaggedEntry \par_strs]) { Par[par_strs.val.head].new }
+multi sub taggedEntryToTerm (["Const", TaggedEntry \const_strs]) {Const[ Int(const_strs.val.head)].new } 
+multi sub taggedEntryToTerm (["Pow", TaggedEntry \pow_strs]) {
+  my (\vt, \et)   = pow_strs.valmap;
+  Pow[ taggedEntryToTerm(vt), Int(et.[1].val)].new
+}        
+multi sub taggedEntryToTerm (["Add", TaggedEntry \hmap]) { 
+  my \res = map {taggedEntryToTerm($_)}, |hmap.valmap;
+  Add[ Array[Term].new(res)].new
+}
+multi sub taggedEntryToTerm (["Mult", TaggedEntry \hmap]) {  
+  my \res = map {taggedEntryToTerm($_)}, |hmap.valmap;
+  Mult[ Array[Term].new(res)].new
+}
+
 my Str @val_strs = "42";
 my \v = taggedEntryToTerm(Const, Val[@val_strs].new);
 say v.raku; 
