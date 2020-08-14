@@ -109,16 +109,17 @@ sub foldll (&f, \iacc, \lst) {
   $acc;
 }
 
-# When the list is empty, return the accumulator
+# # When the list is empty, return the accumulator
 multi sub foldl (&f, \acc, ()) { acc }
 multi sub foldl (&f, \acc, \lst) {
   #'s way of splitting a list in the first elt and the rest
   # The '*' is a shorthand for the end of the list
-   my (\elt,\rest) = lst[0, 1 .. * ];
+  #  my (\elt,\rest) = lst[0, 1 .. Inf ];
+   my \elt = lst[0];
+   my \rest = lst[1 .. Inf];
    # The actual recursion
    foldl( &f, f(acc, elt), rest);
 }
-
 
 #### Right fold
 
