@@ -125,7 +125,7 @@ say bool falseBB;
 # The Maybe type
 say "\nMaybe:\n";
 
-role MayBB[ Block \mb ] {#:((Any --> Any),(--> Any) --> Any)
+role MayBB_OFF[ Block \mb ] {#:((Any --> Any),(--> Any) --> Any)
     has $.unMayBB = mb; 
     #:: forall a .  
     #(b -> a) -- Justgit  a 
@@ -137,22 +137,35 @@ role MayBB[ Block \mb ] {#:((Any --> Any),(--> Any) --> Any)
     }
 }
 
+role MayBB[ &mb ] {#:((Any --> Any),(--> Any) --> Any)
+    # has $.unMayBB = mb; 
+    #:: forall a .  
+    #(b -> a) -- Justgit  a 
+    #-> a -- Nothing 
+    #-> a
+   # method unMayBB_(Block \j:(Any --> Any),Block \n:(--> Any) --> Any) {
+    method unMayBB(&j:(Any --> Any),&n:(-->Any) --> Any) {
+        mb(&j,&n);
+    }
+}
+
+
 # selectors
-sub bbj( \x ) { -> \j,\n {j.(x)} }
-sub bbn { -> \j,\n {n.()} }
+sub bbj( \x ) { -> &j:(Any --> Any),&n:(-->Any) --> Any { &j(x)} }
+sub bbn { -> &j,&n {n()} }
 
 # wrapper for the role constructor
-sub mbb (\jm) {
-    MayBB[ jm ].new;
+sub mbb (&jm) {#:((Any --> Any),(--> Any) --> Any)
+    MayBB[ &jm ].new;
 }
 
 # final type constructors
-sub Just(\v) {mbb( bbj v )}
+sub Just(\v) {mbb( bbj( v) )}
 sub Nothing {mbb( bbn )}
 
 sub testBB(MayBB \mb --> Str) {
     #mb.unMayBB.( -> $x { "$x" }, -> { "NaN"} );
-    mb.unMayBB_( -> $x { "$x" }, -> { "NaN"} );
+    mb.unMayBB( sub (Any \x --> Any) { ''~x }, -> --> Any { "NaN"} );
 }
 
 my MayBB \mbb = Just 42;
