@@ -128,7 +128,7 @@ say "\nMaybe:\n";
 role MayBB[ Block \mb ] {#:((Any --> Any),(--> Any) --> Any)
     has $.unMayBB = mb; 
     #:: forall a .  
-    #(b -> a) -- Just a 
+    #(b -> a) -- Justgit  a 
     #-> a -- Nothing 
     #-> a
    # method unMayBB_(Block \j:(Any --> Any),Block \n:(--> Any) --> Any) {
