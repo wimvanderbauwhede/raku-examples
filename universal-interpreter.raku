@@ -1,8 +1,8 @@
 use v6;
 
 =begin pod
-This code illustrates the use of a technique called Böhm-Berarducci encoding of algebraic data types. 
-This is a way to encode an algebraic data type as a function. 
+This code illustrates the use of a technique called [Böhm-Berarducci encoding]() of algebraic data types. 
+This is a way to encode an algebraic data type as a function type. 
 The function encoding the data type becomes a "universal interpreter". 
 As a result, it is easy to create various interpreters for ADTs.
 I will illustrate this with a few trivial examples and a pretty printer and evaluator for a polynomial expression.
@@ -11,8 +11,8 @@ In my [previous post]() I showed how you can use Raku's _role_ feature to implem
 `OpinionatedBool`:
 
 role OpinionatedBool {}
-role does OpinionatedBool {}
-role does OpinionatedBool {}
+role AbsolutelyTrue does OpinionatedBool {}
+role TotallyFalse does OpinionatedBool {}
 
 The basic idea behind Böhm-Berarducci (BB) encoding is to create a type 
 which represents a function with an argument for every alternative in a sum type.
@@ -39,12 +39,11 @@ Because the constructor for `A3` takes no arguments, the corresponding function 
 a function wich takes no arguments and returns something of type `a`.
 The final `a` is the return value of the top-level function. 
 
-In Raku, the signature would of our `OpinionatedBool` be 
+In Raku, the signature of our `OpinionatedBool` would be 
 
     my $sig = :(Sub, Sub --> Any)
 
 which only shows that this is a sum type with two alternatives. 
-
 
 In Haskell, the type declaration lists the types of all the arguments:
 
@@ -73,7 +72,16 @@ We can be a bit more explicit by using a method with a typed signature:
             b.(t,f)
         }
     }
+    
+    
+    role BoolBB_BETTER[&b] {
+        method unBoolBB(&t:(--> Any), &f:(--> Any) --> Any) {
+            b.(t,f)
+        }
+    }
+    
 
+XXX needs rewrite. Why not 
 Although we don't know the function types, at least we know the number of arguments in the function encoding the type, and that each of these arguments is a function.
 I use the `Block` type rather than `Sub` because I like to use the "pointy block" syntax for anonymous subroutines. 
 In Raku, a `Sub` inherits from `Routine` which inherits from `Block`.
@@ -117,8 +125,13 @@ say bool falseBB;
 # The Maybe type
 say "\nMaybe:\n";
 
-role MayBB[ \mb ] {
-    has $.unMayBB = mb; #:: forall a .  (b -> a) -- Just a -> a -- Nothing -> a
+role MayBB[ Block \mb ] {#:((Any --> Any),(--> Any) --> Any)
+    has $.unMayBB = mb; 
+    #:: forall a .  
+    #(b -> a) -- Just a 
+    #-> a -- Nothing 
+    #-> a
+   # method unMayBB_(Block \j:(Any --> Any),Block \n:(--> Any) --> Any) {
     method unMayBB_(Block \j,Block \n --> Any) {
         mb.(j,n);
     }
@@ -153,7 +166,8 @@ say "\nPair:\n";
 
 role PairBB[ \p ] {
     has $.unPairBB = p; #:: forall a . (t1 -> t2 -> a) -> a
-    method unPairBB_(\p_) {
+    #:(Any,Any --> Any)
+    method unPairBB_(\p_ --> Any) {
         p.(p_);
     }
 }
