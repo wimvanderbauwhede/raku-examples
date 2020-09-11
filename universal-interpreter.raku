@@ -1,11 +1,20 @@
 use v6;
 
 =begin pod
-This code illustrates the use of a technique called [Böhm-Berarducci encoding]() of algebraic data types. 
-This is a way to encode an algebraic data type as a function type. 
-The function encoding the data type becomes a "universal interpreter". 
-As a result, it is easy to create various interpreters for ADTs.
-I will illustrate this with a few trivial examples and a pretty printer and evaluator for a polynomial expression.
+In this article, I want to explain a technique called [Böhm-Berarducci encoding](http://okmij.org/ftp/tagless-final/course/Boehm-Berarducci.html) of algebraic data types. 
+This is the final article in a series about functional programming and in particular algebraic data types and function types in [Raku](https://raku.org/).
+
+XXX boilerplate about what the reader needs to know XXX
+
+
+The link above is to Oleg Kiselyov's explanation, which makes interesting reading but is not required for what follows. Oleg says:
+
+"Boehm-Berarducci's paper has many great insights. Alas, the generality of the presentation makes the paper very hard to understand. It has a Zen-like quality: it is incomprehensible unless you already know its results."
+
+For the purpose of this article, it is sufficient to say that the Böhm-Berarducci encoding is a way to encode an algebraic data type as a function type. The function encoding the data type becomes a "universal interpreter". 
+As a result, it is easy to create various interpreters for ADTs. 
+
+I will illustrate this with a few trivial examples and then use it to construct a pretty printer and evaluator for a polynomial expression.
 
 In my [previous post]() I showed how you can use Raku's _role_ feature to implement algebraic data types. I gave the example of 
 `OpinionatedBool`:
@@ -14,12 +23,10 @@ role OpinionatedBool {}
 role AbsolutelyTrue does OpinionatedBool {}
 role TotallyFalse does OpinionatedBool {}
 
-The basic idea behind Böhm-Berarducci (BB) encoding is to create a type 
-which represents a function with an argument for every alternative in a sum type.
-Every argument is itself a function which takes as arguments the arguments of each alternative, and returns a type.
-However, the return type is polymorphic, so we decide it when we use the BB type. 
+The basic idea behind the Böhm-Berarducci (BB) encoding is to create a type which represents a function with an argument for every alternative in a sum type.
+Every argument is itself a function which takes as arguments the arguments of each alternative, and returns a type. However, the return type is polymorphic, so we decide what it will be when we use the BB type. 
 
-So if we have a sum type with three alternatives:
+For example, if we have a sum type with three alternatives `A1`, A2 and A3: 
 
     A1 Int | A2 String | A3
 
@@ -92,15 +99,23 @@ In Raku, a `Sub` inherits from `Routine` which inherits from `Block`.
 
 say "\nBool:\n";
 
-role BoolBB[\b] {
+role BoolBB[&b] {
     # has $.unBoolBB = b;
-    method unBoolBB(\t,\f) {
-        b.(t,f)
+    method unBoolBB(Any \t, Any \f --> Any) {
+        b(t,f)
     }
 }
 
-my \true  = -> \t,\f { t }
-my \false = sub (\t,\f) { f }
+# role BoolBB[&b] {
+#     method unBoolBB(&t:(--> Any), &f:(--> Any) --> Any) {
+#         b(&t,&f);
+#     }
+# }
+
+# my \true  = -> \t,\f { t }
+# my \false = sub (\t,\f) { f }
+my \true  = -> Any \t, Any \f --> Any { t }
+my \false = sub (Any \t,Any \f --> Any ) { f }
 
 # Make a BB bool
 sub bbb(\tf --> BoolBB) { BoolBB[ tf ].new };
@@ -113,7 +128,7 @@ my BoolBB \falseBB = BBFalse;
 
 # Turn the BB bool into an actual bool
 sub bool(BoolBB \b --> Bool) { 
-    b.unBoolBB( True, False) 
+    b.unBoolBB( True,False); 
     #    b.unBoolBB.( True, False) 
 }
 
@@ -121,6 +136,15 @@ say bool BBTrue;
 say bool BBFalse;
 say bool trueBB;
 say bool falseBB;
+
+sub boolBB (\tf){ tf ?? BBTrue !! BBFalse }
+
+
+say bool boolBB( bool BBTrue);
+say bool boolBB( bool BBFalse);
+
+say boolBB(True).raku;
+say boolBB(False).raku;
 
 # The Maybe type
 say "\nMaybe:\n";
@@ -137,7 +161,7 @@ role MayBB_OFF[ Block \mb ] {#:((Any --> Any),(--> Any) --> Any)
     }
 }
 
-role MayBB[ &mb ] {#:((Any --> Any),(--> Any) --> Any)
+role MayBB_[ &mb ] {#:((Any --> Any),(--> Any) --> Any)
     # has $.unMayBB = mb; 
     #:: forall a .  
     #(b -> a) -- Justgit  a 
@@ -149,13 +173,18 @@ role MayBB[ &mb ] {#:((Any --> Any),(--> Any) --> Any)
     }
 }
 
+role MayBB[ &mb ] {
+    method unMayBB(&j:(Any --> Any),Any \n --> Any) {
+        mb(&j,n);
+    }
+}
 
 # selectors
-sub bbj( \x ) { -> &j:(Any --> Any),&n:(-->Any) --> Any { &j(x)} }
-sub bbn { -> &j,&n {n()} }
+sub bbj( \x ) { -> &j:(Any --> Any), Any \n --> Any { &j(x)} }
+sub bbn { -> &j:(Any --> Any),Any \n --> Any {n} }
 
 # wrapper for the role constructor
-sub mbb (&jm) {#:((Any --> Any),(--> Any) --> Any)
+sub mbb (&jm --> MayBB) {#:((Any --> Any),(--> Any) --> Any)
     MayBB[ &jm ].new;
 }
 
@@ -165,7 +194,7 @@ sub Nothing {mbb( bbn )}
 
 sub testBB(MayBB \mb --> Str) {
     #mb.unMayBB.( -> $x { "$x" }, -> { "NaN"} );
-    mb.unMayBB( sub (Any \x --> Any) { ''~x }, -> --> Any { "NaN"} );
+    mb.unMayBB( sub (Any \x --> Any) { ''~x },  "NaN" );
 }
 
 my MayBB \mbb = Just 42;
@@ -174,13 +203,37 @@ my MayBB \mbbn = Nothing;
 say testBB mbb ;
 say testBB mbbn;
 
+# # selectors
+# sub bbj( \x ) { -> &j:(Any --> Any),&n:(-->Any) --> Any { &j(x)} }
+# sub bbn { -> &j:(Any --> Any),&n:(-->Any) --> Any {n()} }
+
+# # wrapper for the role constructor
+# sub mbb (&jm) {#:((Any --> Any),(--> Any) --> Any)
+#     MayBB[ &jm ].new;
+# }
+
+# # final type constructors
+# sub Just(\v) {mbb( bbj( v) )}
+# sub Nothing {mbb( bbn )}
+
+# sub testBB(MayBB \mb --> Str) {
+#     #mb.unMayBB.( -> $x { "$x" }, -> { "NaN"} );
+#     mb.unMayBB( sub (Any \x --> Any) { ''~x }, -> --> Any { "NaN"} );
+# }
+
+# my MayBB \mbb = Just 42;
+# my MayBB \mbbn = Nothing;
+
+# say testBB mbb ;
+# say testBB mbbn;
+
 # A pair, the simplest product type
 say "\nPair:\n";
 
 role PairBB[ \p ] {
     has $.unPairBB = p; #:: forall a . (t1 -> t2 -> a) -> a
     #:(Any,Any --> Any)
-    method unPairBB_(\p_ --> Any) {
+    method unPairBB_(Callable \p_  --> Any) {
         p.(p_);
     }
 }
@@ -199,6 +252,8 @@ my PairBB \bbp = pair 42,"forty-two";
 
 say fst bbp ;
 say snd bbp ;
+
+say "({fst bbp},{snd bbp})";
 
 #  Now let's try something like a*x^2+b*x+c
 role Term {}
