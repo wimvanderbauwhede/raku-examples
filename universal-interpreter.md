@@ -300,7 +300,9 @@ say "({fst bbp},{snd bbp})"; # => (42,forty-two)
 
 Now that we have seen how simple sum and product types are BB-encoded, let's try something more complex: a parser and interpreter for expressions of the form `a*x^2+b*x+c`. 
 
-The algebraic data for the parse tree for expressions like this in Haskell:
+### Parse tree algebraic data type 
+
+The algebraic data type for the parse tree for expressions like this in Haskell:
 
 ```haskell
 data Term = 
@@ -336,6 +338,8 @@ role Mult [Array[Term] \ts] does Term {
 }
 ```
 
+### Parse tree BB encoding 
+
 The BB encoding of `Term` in Raku is:
 
 ```perl6
@@ -344,19 +348,20 @@ role TermBB[&f] {
         &var:(Str --> Any),
         &par:(Str --> Any),
         &const:(Int --> Any),
-        &pow:(Term,Int --> Any),
-        &add:(Str --> Any),
-        &mult:(Str --> Any) 
+        &pow:(Any,Int --> Any),
+        &add:([Array[Any] --> Any),
+        &mult:([Array[Any] --> Any) 
+        --> Any
     ) {
         f(&var,&par,&const,&pow,&add,&mult);
     }
 }
 ```
 
-As before, we create our little helpers:
+As before, we create our little helpers. Each of the functions below generates the  `TermBB` instance for the corresponding alternative in the algebraic data type. 
+When Raku's macro language is more developed, we will be able to generate these automatically.
 
 ```perl6
-# Selectors
 sub _var(Str \s --> TermBB) { 
     TermBB[ 
         sub (\v, \c, \n, \p, \a, \m) { v.(s) }
@@ -378,27 +383,25 @@ sub _pow( TermBB \t, Int \i --> TermBB) {
     }
     ].new;
 }
-# Properly typed
-sub _add( Array[TermBB] \ts --> TermBB) {
+sub _add( @ts --> TermBB) {
     TermBB[  sub (\v, \c, \n, \p, \a, \m) { 
-        a.( map {$_.unTermBB( v, c, n, p, a, m )}, ts )
+        a.( map {$_.unTermBB( v, c, n, p, a, m )}, @ts )
     }
     ].new;
 }
-# But this works as well
-sub _mult(  @ts --> TermBB) {
+sub _mult(  @ts --> TermBB) { # @ is good enough
     TermBB[  sub (\v, \c, \n, \p, \a, \m) { 
         m.( map {$_.unTermBB( v, c, n, p, a, m )}, @ts )
     }
     ].new;
 }
-# helper-helper, casts the output of the map call to an Array
-sub typed-map (\T,\lst,&f) {
-    Array[T].new(map {f($_) }, |lst )
-}
 ```
 
-and using these we can convert the algebraic data type into its BB encoding:
+The interesting generators are `_pow`, `_add` and `_mult` because they are recursive. 
+In `_pow`, the function passed as parameter to the TermBB role constructor calls `p` which has a signature of `:(Any,Int --> Any)`, but actually requires an argument of the same type as the return value. In Haskell notation we need `a -> Int -> a`. The argument `t`  is of type `TermBB` which is a wrapper around a function which, when applied, will return the right type. In the Raku implementation, this function is the method `unTermBB`. So we need to call `t.unTermBB( ... )`.
+In `_add` and `_mult`, we have an `Array[TermBB]` so we need to call `unTermBB` on every element, hence the `map` call.
+
+Using these generators we can write a single function to convert the algebraic data type into its BB encoding:
 
 ```perl6
 # Turn a Term into a BB Term
@@ -406,11 +409,15 @@ multi sub termToBB(Var \t) { _var(t.var)}
 multi sub termToBB(Par \c) { _par( c.par)}
 multi sub termToBB(Const \n) {_cons(n.const)}
 multi sub termToBB(Pow \pw){ _pow( termToBB(pw.term), pw.exp)}
-multi sub termToBB(Add \t){ _add( typed-map( TermBB, t.terms, &termToBB ))}
+multi sub termToBB(Add \t) { _add( map {termToBB($_)}, |t.terms)}
 multi sub termToBB(Mult \t){ _mult(map {termToBB($_)}, |t.terms)}
 ```
 
-As an example, let's create the parse tree for a few expressions:
+Because `_pow`, `_add` and `_mult` require a `TermBB`, we need to call `termToBB` on the `Term` fields. And because  `_add` and `_mult` take an array of `Term`,  we need a `map`.
+
+### Example parse trees 
+
+As an example, let's create the parse tree for a few expressions. Each of them uses the role-based algebraic data type `Term` defined above.
 
 ```perl6
 # a*x^2 + b*x + x
@@ -444,11 +451,16 @@ say qterm.raku;
 ```
 
 Now convert this into the BB encoding:
+
 ```perl6
 my \qtermbb = termToBB( qterm);
 
 say qtermbb.raku;
 ```
+
+### Interpreter 1: Pretty-printer with BB encoding
+
+This is where the BB encoding really shines: to create a pretty-printer, we write very simple implementations for each alternative, and the `unTermBB` call magically combines these:
 
 ```perl6
 # A pretty-printer
@@ -462,6 +474,10 @@ sub ppTermBB(TermBB \t --> Str){
         t.unTermBB( &var, &par, &const, &pow, &add, &mult);
 }
 ```
+
+### Interpreter 2: Evaluator with BB encoding
+
+And an evaluator is equally simple:
 
 ```perl6
 # evalTermBB :: H.Map String Int -> H.Map String Int -> TermBB -> Int
@@ -477,8 +493,12 @@ sub evalTermBB( %vars,  %pars, \t) {
 }
 ```
 
+### Interpreter 3: Pretty-printer and evaluator combined
+
+
+Now we can do one better and combine these two interpreters. 
+
 ```perl6
-# Now let's combine them!
 sub evalAndppTermBB(%vars,  %pars, TermBB \t ){ 
     t.unTermBB( 
         -> \x {[%vars{x},x]}, 
@@ -487,10 +507,12 @@ sub evalAndppTermBB(%vars,  %pars, TermBB \t ){
         -> \t,\m {[t[0] ** m, t[1] ~ "^{m}"] },
         -> \ts { 
             my \p = 
-        reduce { [ $^a[0] + $^b[0], $^a[1] ~ " + " ~ $^b[1]] }, ts[0],  |ts[1..*];
-        [ p[0], "("~p[1]~")" ]; 
+                reduce { [ $^a[0] + $^b[0], $^a[1] ~ " + " ~ $^b[1]] }, ts[0],  |ts[1..*];
+            [ p[0], "("~p[1]~")" ]; 
         }, 
-        -> \ts { reduce { [ $^a[0] * $^b[0], $^a[1] ~ " * " ~ $^b[1]] }, ts[0],  |ts[1..*]}
+        -> \ts { 
+            reduce { [ $^a[0] * $^b[0], $^a[1] ~ " * " ~ $^b[1]] }, ts[0],  |ts[1..*]
+        }
     )
 }
 
@@ -502,6 +524,10 @@ say evalAndppTermBB(
     {"x" => 2}, {"a" =>2,"b"=>3,"c"=>4},  qtermbb
 );
 ```
+
+### Bonus: parsing the expression
+
+
 
 ```perl6
 # This is for parsing into AST, the link between Term and the TaggedEntry
