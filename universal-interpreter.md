@@ -338,9 +338,45 @@ role Mult [Array[Term] \ts] does Term {
 }
 ```
 
+We can write a pretty-printer for this type using `multi sub`s. The routine is recursive because the `Pow`, `Add` and `Mult` constructors take arguments of type  `Term`, i.e. the algebraic data type itself is recursive. 
+
+```perl6
+# Pretty-print a Term 
+multi sub ppTerm(Var \t) { t.var }
+multi sub ppTerm(Par \c) { c.par }
+multi sub ppTerm(Const \n) { "{n.const}" }
+multi sub ppTerm(Pow \pw){ ppTerm(pw.term) ~ '^' ~ "{pw.exp}" }
+multi sub ppTerm(Add \t) { 
+    my @pts = map {ppTerm($_)}, |t.terms;
+    "("~join( " + ", @pts)~")"
+}
+multi sub ppTerm(Mult \t){ 
+    my @pts = map {ppTerm($_)}, |t.terms;
+    join( " * ", @pts)
+}
+```
+
+In the same way we can write an evaluator for this type:
+
+```perl6
+# Evaluate a Term 
+multi sub evalTerm(%vars,  %pars, Var \t) { %vars{t.var} }
+multi sub evalTerm(%vars,  %pars,Par \c) { %pars{c.par} }
+multi sub evalTerm(%vars,  %pars,Const \n) { n.const }
+multi sub evalTerm(%vars,  %pars,Pow \pw){ evalTerm(%vars,  %pars,pw.term) ** pw.exp }
+multi sub evalTerm(%vars,  %pars,Add \t) { 
+    my @pts = map {evalTerm(%vars,  %pars,$_)}, |t.terms;
+    [+] @pts
+}
+multi sub evalTerm(%vars,  %pars,Mult \t){ 
+    my @pts = map {evalTerm(%vars,  %pars,$_)}, |t.terms;
+    [*] @pts
+}
+```
+
 ### Parse tree BB encoding 
 
-The BB encoding of `Term` in Raku is:
+The BB encoding of `Term` in Raku is pleasingly compact:
 
 ```perl6
 role TermBB[&f] {
@@ -358,7 +394,9 @@ role TermBB[&f] {
 }
 ```
 
-As before, we create our little helpers. Each of the functions below generates the  `TermBB` instance for the corresponding alternative in the algebraic data type. 
+We could of course use this type directly, but let's look at how we can convert between `Term` and `TermBB`
+
+As before, we create our little helpers. Each of the functions below generates the `TermBB` instance for the corresponding alternative in the `Term` algebraic data type. 
 When Raku's macro language is more developed, we will be able to generate these automatically.
 
 ```perl6
@@ -383,13 +421,13 @@ sub _pow( TermBB \t, Int \i --> TermBB) {
     }
     ].new;
 }
-sub _add( @ts --> TermBB) {
+sub _add( @ts --> TermBB) { # Note about why @ and not Array[TermBB] \ ?? Or better, do this right and use typed-map after all!
     TermBB[  sub (\v, \c, \n, \p, \a, \m) { 
         a.( map {$_.unTermBB( v, c, n, p, a, m )}, @ts )
     }
     ].new;
 }
-sub _mult(  @ts --> TermBB) { # @ is good enough
+sub _mult(  @ts --> TermBB) { 
     TermBB[  sub (\v, \c, \n, \p, \a, \m) { 
         m.( map {$_.unTermBB( v, c, n, p, a, m )}, @ts )
     }
@@ -397,11 +435,10 @@ sub _mult(  @ts --> TermBB) { # @ is good enough
 }
 ```
 
-The interesting generators are `_pow`, `_add` and `_mult` because they are recursive. 
-In `_pow`, the function passed as parameter to the TermBB role constructor calls `p` which has a signature of `:(Any,Int --> Any)`, but actually requires an argument of the same type as the return value. In Haskell notation we need `a -> Int -> a`. The argument `t`  is of type `TermBB` which is a wrapper around a function which, when applied, will return the right type. In the Raku implementation, this function is the method `unTermBB`. So we need to call `t.unTermBB( ... )`.
+The interesting generators are `_pow`, `_add` and `_mult` because they are recursive. In `_pow`, the function passed as parameter to the TermBB role constructor calls `p` which has a signature of `:(Any,Int --> Any)`, but actually requires an argument of the same type as the return value. Using Haskell notation, we need `a -> Int -> a`. The argument `t`  is of type `TermBB` which is a wrapper around a function which, when applied, will return the right type. In the Raku implementation, this function is the method `unTermBB`. So we need to call `t.unTermBB( ... )`.
 In `_add` and `_mult`, we have an `Array[TermBB]` so we need to call `unTermBB` on every element, hence the `map` call.
 
-Using these generators we can write a single function to convert the algebraic data type into its BB encoding:
+Using these generators we can write a single function to convert the algebraic data type into its BB encoding. Unsurprisingly, it is very similar to the pretty-printer and evaluator we wrote for `Term` instances:
 
 ```perl6
 # Turn a Term into a BB Term
@@ -414,6 +451,7 @@ multi sub termToBB(Mult \t){ _mult(map {termToBB($_)}, |t.terms)}
 ```
 
 Because `_pow`, `_add` and `_mult` require a `TermBB`, we need to call `termToBB` on the `Term` fields. And because  `_add` and `_mult` take an array of `Term`,  we need a `map`.
+
 
 ### Example parse trees 
 
@@ -460,11 +498,11 @@ say qtermbb.raku;
 
 ### Interpreter 1: Pretty-printer with BB encoding
 
-This is where the BB encoding really shines: to create a pretty-printer, we write very simple implementations for each alternative, and the `unTermBB` call magically combines these:
+To create a pretty-printer for the BB-encoded type, we write very simple implementations for each alternative, and the `unTermBB` call magically combines these. There is no explicit recursion because that is handled in the type itself.
 
 ```perl6
 # A pretty-printer
-sub ppTermBB(TermBB \t --> Str){ 
+sto ppTmBB(TermBB \t --> Str){ 
         sub var( \x ) { x }
         sub par( \x ) { x }
         sub const( $x ) { "$x" }
@@ -495,11 +533,10 @@ sub evalTermBB( %vars,  %pars, \t) {
 
 ### Interpreter 3: Pretty-printer and evaluator combined
 
-
 Now we can do one better and combine these two interpreters. 
 
 ```perl6
-sub evalAndppTermBB(%vars,  %pars, TermBB \t ){ 
+sub evaltodppTmBB(%vars,  %pars, TermBB \t ){ 
     t.unTermBB( 
         -> \x {[%vars{x},x]}, 
         -> \x {[%pars{x},x]},
@@ -524,6 +561,26 @@ say evalAndppTermBB(
     {"x" => 2}, {"a" =>2,"b"=>3,"c"=>4},  qtermbb
 );
 ```
+
+### Interpreter 4: Converting `TermBB` to `Term`
+
+Because a converter from `TermBB` to `Term` is yet another type of interpreter, we can follow exactly the same approach as  before. The only slight complication is that the type of `ts` is not 
+
+```perl6
+sub toTerm(TermBB \t --> Term){ 
+        sub var( \x ) { Var[x].new }
+        sub par( \x ) { Par[x].new }
+        sub const( $x ) { Const[$x].new }
+        sub pow( \t, $m ) { Pow[ t, $m].new } 
+        sub add( \ts ) { Add[ ts ].new }
+        sub mult( \ts ) { Mult[ ts ].new) }
+        t.unTermBB( &var, &par, &const, &pow, &add, &mult);
+}
+
+say toTerm(qtermbb).raku;
+```
+
+
 
 ### Bonus: parsing the expression
 

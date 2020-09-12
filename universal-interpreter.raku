@@ -312,14 +312,14 @@ sub _pow( TermBB \t, Int \i --> TermBB) {
 # Properly typed
 sub _add( Array[TermBB] \ts --> TermBB) {
     TermBB[  sub (\v, \c, \n, \p, \a, \m) { 
-        a.( map {$_.unTermBB( v, c, n, p, a, m )}, ts )
+        a.( map {.unTermBB( v, c, n, p, a, m )}, ts )
     }
     ].new;
 }
 # But this works as well
 sub _mult(  @ts --> TermBB) {
     TermBB[  sub (\v, \c, \n, \p, \a, \m) { 
-        m.( map {$_.unTermBB( v, c, n, p, a, m )}, @ts )
+        m.( map {.unTermBB( v, c, n, p, a, m )}, @ts )
     }
     ].new;
 }
@@ -327,6 +327,37 @@ sub _mult(  @ts --> TermBB) {
 sub typed-map (\T,\lst,&f) {
     Array[T].new(map {f($_) }, |lst )
 }
+
+# Pretty-print a Term 
+multi sub ppTerm(Var \t) { t.var }
+multi sub ppTerm(Par \c) { c.par }
+multi sub ppTerm(Const \n) { "{n.const}" }
+multi sub ppTerm(Pow \pw){ ppTerm(pw.term) ~ '^' ~ "{pw.exp}" }
+multi sub ppTerm(Add \t) { 
+    my @pts = map {ppTerm($_)}, |t.terms;
+    "("~join( " + ", @pts)~")"
+}
+multi sub ppTerm(Mult \t){ 
+    my @pts = map {ppTerm($_)}, |t.terms;
+    join( " * ", @pts)
+}
+
+# Evaluate a Term 
+multi sub evalTerm(%vars,  %pars, Var \t) { %vars{t.var} }
+multi sub evalTerm(%vars,  %pars,Par \c) { %pars{c.par} }
+multi sub evalTerm(%vars,  %pars,Const \n) { n.const }
+multi sub evalTerm(%vars,  %pars,Pow \pw){ evalTerm(%vars,  %pars,pw.term) ** pw.exp }
+multi sub evalTerm(%vars,  %pars,Add \t) { 
+    my @pts = map {evalTerm(%vars,  %pars,$_)}, |t.terms;
+    [+] @pts
+}
+multi sub evalTerm(%vars,  %pars,Mult \t){ 
+    my @pts = map {evalTerm(%vars,  %pars,$_)}, |t.terms;
+    [*] @pts
+}
+
+
+
 
 # Turn a Term into a BB Term
 multi sub termToBB(Var \t) { _var(t.var)}
@@ -409,13 +440,31 @@ sub evalAndppTermBB(%vars,  %pars, TermBB \t ){
     )
 }
 
+say ppTerm(qterm);
 say ppTermBB( qtermbb);
+say evalTerm(
+    {"x" => 2}, {"a" =>2,"b"=>3,"c"=>4},  qterm 
+);
 say evalTermBB(
     {"x" => 2}, {"a" =>2,"b"=>3,"c"=>4},  qtermbb
 );
 say evalAndppTermBB(
     {"x" => 2}, {"a" =>2,"b"=>3,"c"=>4},  qtermbb
 );
+sub toTerm(TermBB \t --> Term){ 
+        sub var( \x ) { Var[x].new }
+        sub par( \x ) { Par[x].new }
+        sub const( $x ) { Const[$x].new }
+        sub pow( \t, $m ) { Pow[ t, $m].new } 
+        sub add( \ts ) { Add[ Array[Term].new(ts) ].new }
+        sub mult( \ts ) { Mult[ Array[Term].new(ts) ].new }
+        t.unTermBB( &var, &par, &const, &pow, &add, &mult);
+}
+
+say toTerm(qtermbb).raku;
+
+
+
 
 # This is for parsing into AST, the link between Term and the TaggedEntry
 role TaggedEntry {}
