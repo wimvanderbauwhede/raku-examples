@@ -199,6 +199,11 @@ role PairBB[ &p ] {
     method unPairBB(&p_:(Any,Any --> Any)  --> Any) {
         p(&p_);
     }
+
+# To get the elements out of the pair
+method fst_( ){ self.unPairBB(true) }
+method snd_( ){ self.unPairBB(false) }
+
 }
 
 # To get the elements out of the pair
@@ -215,3 +220,34 @@ my PairBB \bbp = pair 42,"forty-two";
 
 say fst bbp ;
 say snd bbp ;
+
+say bbp.fst_  ;
+say bbp.snd_  ;
+
+
+  
+role BoolBB[&b] {
+    method unBoolBB(Any \t, Any \f --> Any) {
+        b(t,f);
+    }
+}
+
+
+# my \true  = -> Any \t, Any \f --> Any { t }
+# my \false = sub (Any \t,Any \f --> Any ) { f }
+
+sub bbb(\tf --> BoolBB) { BoolBB[ tf ].new };
+my BoolBB \BBTrue = bbb true;
+my BoolBB \BBFalse = bbb false;
+
+my BoolBB \trueBB = BBTrue;
+
+
+sub boolBB (Bool \tf --> BoolBB){ tf ?? BBTrue !! BBFalse }
+sub bool(BoolBB \b --> Bool) { 
+    b.unBoolBB(  True, False) 
+}
+say bool BBTrue; # => True
+say bool BBFalse; # => False
+say bool boolBB( bool BBTrue); # => True
+say bool boolBB( bool BBFalse); # => False

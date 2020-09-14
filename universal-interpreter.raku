@@ -253,7 +253,11 @@ my PairBB \bbp = pair 42,"forty-two";
 say fst bbp ;
 say snd bbp ;
 
+my \bbp2 = pair fst( bbp)+1,"forty-three";
+
 say "({fst bbp},{snd bbp})";
+say "({fst bbp2},{snd bbp2})";
+
 
 #  Now let's try something like a*x^2+b*x+c
 role Term {}
