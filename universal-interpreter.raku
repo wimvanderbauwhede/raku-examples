@@ -104,6 +104,10 @@ role BoolBB[&b] {
     method unBoolBB(Any \t, Any \f --> Any) {
         b(t,f)
     }
+    method bool_ { 
+        self.unBoolBB( True, False) 
+    }
+
 }
 
 # role BoolBB[&b] {
@@ -120,11 +124,17 @@ my \false = sub (Any \t,Any \f --> Any ) { f }
 # Make a BB bool
 sub bbb(\tf --> BoolBB) { BoolBB[ tf ].new };
 
+sub BBTrue_{bbb true}
+sub BBFalse_{bbb false}
+
 my BoolBB \BBTrue = bbb true;
 my BoolBB \BBFalse = bbb false;
 
 my BoolBB \trueBB = BBTrue;
 my BoolBB \falseBB = BBFalse; 
+
+my BoolBB \trueBB_ = BBTrue_;
+my BoolBB \falseBB_ = BBFalse_; 
 
 # Turn the BB bool into an actual bool
 sub bool(BoolBB \b --> Bool) { 
@@ -132,10 +142,17 @@ sub bool(BoolBB \b --> Bool) {
     #    b.unBoolBB.( True, False) 
 }
 
+say bool BBTrue_;
+say bool BBFalse_;
+
 say bool BBTrue;
 say bool BBFalse;
 say bool trueBB;
 say bool falseBB;
+
+say  BBTrue_.bool_; # => True
+say  BBFalse_.bool_; # => False
+
 
 sub boolBB (\tf){ tf ?? BBTrue !! BBFalse }
 
@@ -360,6 +377,24 @@ multi sub evalTerm(%vars,  %pars,Mult \t){
     [*] @pts
 }
 
+# Evaluate a Term 
+sub evalTerm_(%vars,  %pars, Term \t) {
+    given t {
+        when Var { %vars{t.var} }
+        when Par { %pars{t.par} }
+        when Const { t.const }
+        when Pow { evalTerm(%vars,  %pars,t.term) ** t.exp }
+        when Add {
+            my @pts = map {evalTerm(%vars,  %pars,$_)}, |t.terms;
+            [+] @pts
+        }
+        when Mult { 
+            my @pts = map {evalTerm(%vars,  %pars,$_)}, |t.terms;
+            [*] @pts
+        }
+    }
+}
+
 
 
 
@@ -401,6 +436,8 @@ my \qterm = Mult[
 
 
 say qterm.raku;
+# Mult[Array[Term]].new(terms => Array[Term].new(Add[Array[Term]].new(terms => Array[Term].new(Mult[Array[Term]].new(terms => Array[Term].new(Par[Str].new(par => "a"), Pow[Var[Str],Int].new(term => Var[Str].new(var => "x"), exp => 2))), Mult[Array[Term]].new(terms => Array[Term].new(Par[Str].new(par => "b"), Var[Str].new(var => "x"))), Par[Str].new(par => "c"))), Add[Array[Term]].new(terms => Array[Term].new(Pow[Var[Str],Int].new(term => Var[Str].new(var => "x"), exp => 3), Const[Int].new(const => 1)))))
+
 my \qtermbb = termToBB( qterm);
 say qtermbb.raku;
 
