@@ -338,14 +338,19 @@ sub _add( Array[TermBB] \ts --> TermBB) {
     ].new;
 }
 # But this works as well
-sub _mult(  @ts --> TermBB) {
+# sub _mult(  @ts --> TermBB) {
+sub _mult( Array[TermBB] \ts --> TermBB) { 
     TermBB[  sub (\v, \c, \n, \p, \a, \m) { 
-        m.( map {.unTermBB( v, c, n, p, a, m )}, @ts )
+        m.( map {.unTermBB( v, c, n, p, a, m )}, ts ) 
+        # @ts )
     }
     ].new;
 }
 
-sub typed-map (\T,\lst,&f) {
+# ::T does not work: Died with X::TypeCheck::Assignment
+# \T does work but
+# --> Array[T] is broken: Type check failed for return value; expected Array[Mu] but got Array[TermBB] (Array[TermBB].new(TermBB[Sub].new,...)
+sub typed-map (\T,\lst,&f) { #  --> Array[T] 
     Array[T].new(map {f($_) }, |lst )
 }
 
@@ -405,7 +410,8 @@ multi sub termToBB(Const \n) {_cons(n.const)}
 multi sub termToBB(Pow \pw){ _pow( termToBB(pw.term), pw.exp)}
 # multi sub termToBB(Add \t){ _add( Array[TermBB].new(map {termToBB($_) }, |t.terms ))}
 multi sub termToBB(Add \t){ _add( typed-map( TermBB, t.terms, &termToBB ))}
-multi sub termToBB(Mult \t){ _mult(map {termToBB($_)}, |t.terms)}
+# multi sub termToBB(Mult \t){ _mult(map {termToBB($_)}, |t.terms)}
+multi sub termToBB(Mult \t){ _mult( typed-map(TermBB, t.terms, &termToBB ))}
 
 # Example: 
 #   a*x^2 + b*x + x    
@@ -440,7 +446,7 @@ say qterm.raku;
 
 my \qtermbb = termToBB( qterm);
 say qtermbb.raku;
-
+# exit;
 # A pretty-printer
 sub ppTermBB(TermBB \t --> Str){ 
         sub var( \x ) { x }
