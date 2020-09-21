@@ -97,7 +97,6 @@ sub evalTermUBB( %vars,  %pars, \t) {
     );
 }
 
-
 my @strs=();
 my @vals=();
 for 1 .. $nruns -> $c {

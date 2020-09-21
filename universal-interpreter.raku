@@ -1,106 +1,10 @@
 use v6;
 
-=begin pod
-In this article, I want to explain a technique called [Böhm-Berarducci encoding](http://okmij.org/ftp/tagless-final/course/Boehm-Berarducci.html) of algebraic data types. 
-This is the final article in a series about functional programming and in particular algebraic data types and function types in [Raku](https://raku.org/).
-
-XXX boilerplate about what the reader needs to know XXX
-
-
-The link above is to Oleg Kiselyov's explanation, which makes interesting reading but is not required for what follows. Oleg says:
-
-"Boehm-Berarducci's paper has many great insights. Alas, the generality of the presentation makes the paper very hard to understand. It has a Zen-like quality: it is incomprehensible unless you already know its results."
-
-For the purpose of this article, it is sufficient to say that the Böhm-Berarducci encoding is a way to encode an algebraic data type as a function type. The function encoding the data type becomes a "universal interpreter". 
-As a result, it is easy to create various interpreters for ADTs. 
-
-I will illustrate this with a few trivial examples and then use it to construct a pretty printer and evaluator for a polynomial expression.
-
-In my [previous post]() I showed how you can use Raku's _role_ feature to implement algebraic data types. I gave the example of 
-`OpinionatedBool`:
-
-role OpinionatedBool {}
-role AbsolutelyTrue does OpinionatedBool {}
-role TotallyFalse does OpinionatedBool {}
-
-The basic idea behind the Böhm-Berarducci (BB) encoding is to create a type which represents a function with an argument for every alternative in a sum type.
-Every argument is itself a function which takes as arguments the arguments of each alternative, and returns a type. However, the return type is polymorphic, so we decide what it will be when we use the BB type. 
-
-For example, if we have a sum type with three alternatives `A1`, A2 and A3: 
-
-    A1 Int | A2 String | A3
-
-then the corresponding BB type will be
-
-    -- A1
-    (Int -> a) -> 
-    -- A2
-    (String -> a) -> 
-    -- A3
-    (a) -> 
-    -- The return type
-    a
-
-I have put parentheses to show which part of the type is the function type corresponding to each alterative. 
-Because the constructor for `A3` takes no arguments, the corresponding function signature in the BB encoding is simply `a`: 
-a function wich takes no arguments and returns something of type `a`.
-The final `a` is the return value of the top-level function. 
-
-In Raku, the signature of our `OpinionatedBool` would be 
-
-    my $sig = :(Sub, Sub --> Any)
-
-which only shows that this is a sum type with two alternatives. 
-
-In Haskell, the type declaration lists the types of all the arguments:
-
-    newtype OpinionatedBoolBB b = OpinionatedBoolBB {
-        unBoolBB :: forall a . 
-        a -- True
-        -> a -- False
-        -> a
-    }
-
-which shows that the two constructors don't take any arguments.
-
-In Raku, the type system is less expressive, but it is powerful enough to implement the BB type.
-We can either implement it very simply as a role with a single accessor:
-
-    role BoolBB[\b] {
-        has $.unBoolBB = b;
-    }
-
-Note that this is so general that _any_ BB type would have this representation, so there is no type safety.
-
-We can be a bit more explicit by using a method with a typed signature:
-
-    role BoolBB[Block \b] {
-        method unBoolBB(Block \t, Block \f --> Any) {
-            b.(t,f)
-        }
-    }
-    
-    
-    role BoolBB_BETTER[&b] {
-        method unBoolBB(&t:(--> Any), &f:(--> Any) --> Any) {
-            b.(t,f)
-        }
-    }
-    
-
-XXX needs rewrite. Why not 
-Although we don't know the function types, at least we know the number of arguments in the function encoding the type, and that each of these arguments is a function.
-I use the `Block` type rather than `Sub` because I like to use the "pointy block" syntax for anonymous subroutines. 
-In Raku, a `Sub` inherits from `Routine` which inherits from `Block`.
-
-=end pod
-
 # Boolean, the simplest sum type
 
 say "\nBool:\n";
 
 role BoolBB[&b] {
-    # has $.unBoolBB = b;
     method unBoolBB(Any \t, Any \f --> Any) {
         b(t,f)
     }
@@ -110,14 +14,6 @@ role BoolBB[&b] {
 
 }
 
-# role BoolBB[&b] {
-#     method unBoolBB(&t:(--> Any), &f:(--> Any) --> Any) {
-#         b(&t,&f);
-#     }
-# }
-
-# my \true  = -> \t,\f { t }
-# my \false = sub (\t,\f) { f }
 my \true  = -> Any \t, Any \f --> Any { t }
 my \false = sub (Any \t,Any \f --> Any ) { f }
 
@@ -139,7 +35,6 @@ my BoolBB \falseBB_ = BBFalse_;
 # Turn the BB bool into an actual bool
 sub bool(BoolBB \b --> Bool) { 
     b.unBoolBB( True,False); 
-    #    b.unBoolBB.( True, False) 
 }
 
 say bool BBTrue_;
@@ -166,25 +61,12 @@ say boolBB(False).raku;
 # The Maybe type
 say "\nMaybe:\n";
 
-role MayBB_OFF[ Block \mb ] {#:((Any --> Any),(--> Any) --> Any)
-    has $.unMayBB = mb; 
-    #:: forall a .  
-    #(b -> a) -- Justgit  a 
-    #-> a -- Nothing 
-    #-> a
-   # method unMayBB_(Block \j:(Any --> Any),Block \n:(--> Any) --> Any) {
-    method unMayBB_(Block \j,Block \n --> Any) {
-        mb.(j,n);
-    }
-}
-
 role MayBB_[ &mb ] {#:((Any --> Any),(--> Any) --> Any)
     # has $.unMayBB = mb; 
     #:: forall a .  
     #(b -> a) -- Justgit  a 
     #-> a -- Nothing 
     #-> a
-   # method unMayBB_(Block \j:(Any --> Any),Block \n:(--> Any) --> Any) {
     method unMayBB(&j:(Any --> Any),&n:(-->Any) --> Any) {
         mb(&j,&n);
     }
@@ -210,7 +92,6 @@ sub Just(\v) {mbb( bbj( v) )}
 sub Nothing {mbb( bbn )}
 
 sub testBB(MayBB \mb --> Str) {
-    #mb.unMayBB.( -> $x { "$x" }, -> { "NaN"} );
     mb.unMayBB( sub (Any \x --> Any) { ''~x },  "NaN" );
 }
 
@@ -219,30 +100,6 @@ my MayBB \mbbn = Nothing;
 
 say testBB mbb ;
 say testBB mbbn;
-
-# # selectors
-# sub bbj( \x ) { -> &j:(Any --> Any),&n:(-->Any) --> Any { &j(x)} }
-# sub bbn { -> &j:(Any --> Any),&n:(-->Any) --> Any {n()} }
-
-# # wrapper for the role constructor
-# sub mbb (&jm) {#:((Any --> Any),(--> Any) --> Any)
-#     MayBB[ &jm ].new;
-# }
-
-# # final type constructors
-# sub Just(\v) {mbb( bbj( v) )}
-# sub Nothing {mbb( bbn )}
-
-# sub testBB(MayBB \mb --> Str) {
-#     #mb.unMayBB.( -> $x { "$x" }, -> { "NaN"} );
-#     mb.unMayBB( sub (Any \x --> Any) { ''~x }, -> --> Any { "NaN"} );
-# }
-
-# my MayBB \mbb = Just 42;
-# my MayBB \mbbn = Nothing;
-
-# say testBB mbb ;
-# say testBB mbbn;
 
 # A pair, the simplest product type
 say "\nPair:\n";
@@ -329,15 +186,12 @@ sub _pow( TermBB \t, Int \i --> TermBB) {
     }
     ].new;
 }
-# Properly typed
 sub _add( Array[TermBB] \ts --> TermBB) {
     TermBB[  sub (\v, \c, \n, \p, \a, \m) { 
         a.( map {.unTermBB( v, c, n, p, a, m )}, ts )
     }
     ].new;
 }
-# But this works as well
-# sub _mult(  @ts --> TermBB) {
 sub _mult( Array[TermBB] \ts --> TermBB) { 
     TermBB[  sub (\v, \c, \n, \p, \a, \m) { 
         m.( map {.unTermBB( v, c, n, p, a, m )}, ts ) 
@@ -401,17 +255,12 @@ sub evalTerm_(%vars,  %pars, Term \t) {
     }
 }
 
-
-
-
 # Turn a Term into a BB Term
 multi sub termToBB(Var \t) { _var(t.var)}
 multi sub termToBB(Par \c) { _par( c.par)}
 multi sub termToBB(Const \n) {_cons(n.const)}
 multi sub termToBB(Pow \pw){ _pow( termToBB(pw.term), pw.exp)}
-# multi sub termToBB(Add \t){ _add( Array[TermBB].new(map {termToBB($_) }, |t.terms ))}
 multi sub termToBB(Add \t){ _add( typed-map( TermBB, t.terms, &termToBB ))}
-# multi sub termToBB(Mult \t){ _mult(map {termToBB($_)}, |t.terms)}
 multi sub termToBB(Mult \t){ _mult( typed-map(TermBB, t.terms, &termToBB ))}
 
 # Example: 
@@ -443,11 +292,10 @@ my \qterm = Mult[
 
 
 say qterm.raku;
-# Mult[Array[Term]].new(terms => Array[Term].new(Add[Array[Term]].new(terms => Array[Term].new(Mult[Array[Term]].new(terms => Array[Term].new(Par[Str].new(par => "a"), Pow[Var[Str],Int].new(term => Var[Str].new(var => "x"), exp => 2))), Mult[Array[Term]].new(terms => Array[Term].new(Par[Str].new(par => "b"), Var[Str].new(var => "x"))), Par[Str].new(par => "c"))), Add[Array[Term]].new(terms => Array[Term].new(Pow[Var[Str],Int].new(term => Var[Str].new(var => "x"), exp => 3), Const[Int].new(const => 1)))))
 
 my \qtermbb = termToBB( qterm);
 say qtermbb.raku;
-# exit;
+
 # A pretty-printer
 sub ppTermBB(TermBB \t --> Str){ 
         sub var( \x ) { x }
