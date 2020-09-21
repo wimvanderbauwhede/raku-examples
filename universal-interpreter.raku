@@ -300,7 +300,6 @@ role Mult [Array[Term] \ts] does Term {
 
 # The BB encoding of Term
 role TermBB[\f] {
-    # has $.unTermBB = f; This is OK but tells us nothing
     method unTermBB(
         \var,\par,\const,\pow,\add,\mult 
     ) {
@@ -372,7 +371,9 @@ multi sub ppTerm(Mult \t){
 multi sub evalTerm(%vars,  %pars, Var \t) { %vars{t.var} }
 multi sub evalTerm(%vars,  %pars,Par \c) { %pars{c.par} }
 multi sub evalTerm(%vars,  %pars,Const \n) { n.const }
-multi sub evalTerm(%vars,  %pars,Pow \pw){ evalTerm(%vars,  %pars,pw.term) ** pw.exp }
+multi sub evalTerm(%vars,  %pars,Pow \pw){ 
+    evalTerm(%vars,  %pars,pw.term) ** pw.exp 
+}
 multi sub evalTerm(%vars,  %pars,Add \t) { 
     my @pts = map {evalTerm(%vars,  %pars,$_)}, |t.terms;
     [+] @pts
@@ -511,7 +512,25 @@ sub toTerm(TermBB \t --> Term){
 say toTerm(qtermbb).raku;
 
 
-
+my \qtermbbb = _add(
+    Array[TermBB].new(
+    _mult( 
+        Array[TermBB].new(
+        _par( "a"), 
+        _pow( _var( "x"), 2) 
+        )
+        ),
+    _mult(
+        Array[TermBB].new(
+            _par( "b"), 
+            _var( "x")
+            ) 
+        ),
+    _par( "c")
+    )
+    );
+    
+say ppTermBB( qtermbbb);
 
 # This is for parsing into AST, the link between Term and the TaggedEntry
 role TaggedEntry {}
@@ -525,6 +544,7 @@ role ValMap [  @vm] does TaggedEntry { #String \k, TaggedEntry \te,
 multi sub taggedEntryToTerm (Var ,\val_strs) { Var[ val_strs.val.head].new }
 multi sub taggedEntryToTerm (Par ,\par_strs) { Par[par_strs.val.head].new }
 multi sub taggedEntryToTerm (Const ,\const_strs) {Const[ Int(const_strs.val.head)].new } 
+# Pow => { }
 # multi sub taggedEntryToTerm (Pow , ValMap [t1,(_,Val [v2])]) { Pow[ taggedEntryToTerm(...,....), Int(...)].new}        
 # multi sub taggedEntryToTerm (Add , ValMap hmap) = Add $ map taggedEntryToTerm hmap
 # multi sub taggedEntryToTerm (Mult , ValMap hmap) = Mult $ map taggedEntryToTerm hmap
