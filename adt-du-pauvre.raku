@@ -1,32 +1,27 @@
 use v6;
 
-=begin
-In previous articles I have explained two approaches to creating algebraic data types in Raku. They are fine from a static typing perspective, and provide pattern matching against the type alternatives.
-But as we have seen, they have the disadvantage of being rather slow. In this article I will create an alternative for the parse tree data structure which provides the same presentation but is much faster.
+# =begin pod
+# In previous articles I have explained two approaches to creating algebraic data types in Raku. They are fine from a static typing perspective, and provide pattern matching against the type alternatives.
+# But as we have seen, they have the disadvantage of being rather slow. In this article I will create an alternative for the parse tree data structure which provides the same presentation but is much faster.
 
-The idea is very simple: I use nested lists as the data structure, making use of Raku's dynamic typing. The first element of the list is an `enum` indicating which alternative in a sum type we have selected. 
-The other elements are the actual values stored in the data structure. So a Maybe type will be
+# The idea is very simple: I use nested lists as the data structure, making use of Raku's dynamic typing. The first element of the list is an `enum` indicating which alternative in a sum type we have selected. 
+# The other elements are the actual values stored in the data structure. So a Maybe type will be
 
-enum Maybe <Just Nothing>;
+# enum Maybe <Just Nothing>;
 
-my $just_42 = Just,42;
-my $nothing = Nothing
+# my $just_42 = Just,42;
+# my $nothing = Nothing
 
-To make this nicer we create some wrapper functions:
+# To make this nicer we create some wrapper functions:
 
-sub Just($x) {
-    Just,$x
-}
+# sub Jus($x) {
+#     Just,$x
+# }
 
-And (redundant in this case of course):
+# And (redundant in this case of course):
 
-sub Nothing { Nothing } 
-
-
-
-
-
-=end
+# sub Nothing { Nothing } 
+# =end pod
 
 my $nruns=200;
 
@@ -69,19 +64,19 @@ enum Term <Var Par Const Pow Add Mult>;
 sub Var ($v) {
     (Var,$v)
 }
-sub ParT ($p) {
+sub Par ($p) {
     (Par, $p)
 }
-sub ConstT ($c) {
+sub Const ($c) {
     (Const,$c)
 }
-sub PowT ($m,$e) {
+sub Pow ($m,$e) {
     (Pow,$m,$e)
 }
-sub AddT (**@ts) {
+sub Add (**@ts) {
     (Add,@ts)
 }
-sub MultT (**@ts) {
+sub Mult (**@ts) {
     (Mult,@ts)
 }
 
@@ -105,6 +100,21 @@ sub ppTerm(\t) {
         }
     }
 }
+
+# OK but slower
+# multi sub ppTerm(\t where {t[0] ~~ Var}) { t[1] }
+# multi sub ppTerm(\t where {t[0] ~~  Par}) { t[1] }
+# multi sub ppTerm(\t where {t[0] ~~  Const}) { "{t[1]}" }
+# multi sub ppTerm(\t where {t[0] ~~  Pow}) { ppTerm(t[1])  ~ '^' ~ ppTerm(t[2]) }
+# multi sub ppTerm(\t where {t[0] ~~  Add}) {
+#     my @pts = map {ppTerm($_)}, |t[1];
+#     "("~join( " + ", @pts)~")"
+# }
+# multi sub ppTerm(\t where {t[0] ~~  Mult}) { 
+#     my @pts = map {ppTerm($_)}, |t[1];
+#     join( " * ", @pts)
+# }
+
 
 # Evaluate a Term 
 
@@ -130,64 +140,64 @@ my @strs=();
 my @vals=();
 for 1 .. $nruns -> $c {
 # a*x^2 + b*x + x
-my \qterm1 = (Add, (
-    (Mult, ( 
-        (Par, "a"), 
-        (Pow, (Var, "x"), (Const,2)) 
-        )),
-    (Mult,(
-        (Par, "b"), 
-        (Var, "x") 
-        )),
-    (Par, "c")
-));
+# my \qterm1 = (Add, (
+#     (Mult, ( 
+#         (Par, "a"), 
+#         (Pow, (Var, "x"), (Const,2)) 
+#         )),
+#     (Mult,(
+#         (Par, "b"), 
+#         (Var, "x") 
+#         )),
+#     (Par, "c")
+# ));
 
-#   x^3 + 1    
-my \qterm2 = (Add,(
-    (Pow,
-          (Var, "x"), 
-          (Const,3)
-      ), 
-    (Const,$c)
-)
-);
+# #   x^3 + 1    
+# my \qterm2 = (Add,(
+#     (Pow,
+#           (Var, "x"), 
+#           (Const,3)
+#       ), 
+#     (Const,$c)
+# )
+# );
 
-#   qterm1 * qterm2    
-my \qterm3 = (Mult,( 
-    qterm1, qterm2
-));
+# #   qterm1 * qterm2    
+# my \qterm3 = (Mult,( 
+#     qterm1, qterm2
+# ));
 
 
 # a*x^2 + b*x + x
-my \qtermt1 = AddT(
-    MultT( 
-        ParT("a"), 
-        PowT( Var( "x"), ConstT(2)) 
+my \qtermt1 = Add(
+    Mult( 
+        Par("a"), 
+        Pow( Var( "x"), Const(2)) 
         ),
-    MultT(
-        ParT("b"), 
+    Mult(
+        Par("b"), 
         Var("x") 
         ),
-    ParT( "c")
+    Par( "c")
 );
 
 #   x^3 + 1    
-my \qtermt2 = AddT( 
-    PowT( 
+my \qtermt2 = Add( 
+    Pow( 
           Var("x"), 
-          ConstT(3)
+          Const(3)
           ), 
-    ConstT($c)    
+    Const($c)    
 );
 
 #   qtermt1 * qtermt2    
-my \qtermt3 = MultT( 
+my \qtermt3 = Mult( 
     qtermt1, qtermt2
 );
 
 # my @qt4 = Add,[(Pow, $(Var,'x'),$(Const,2)),$(Const,1)];
 # my @qt4s = Add,[(Pow, [Var,'x'],[Const,2]),[Const,1]];
-# my @qt4t = AddT(PowT(VarT('x'),ConstT(2)),ConstT(1));
+# my @qt4t = Add(Pow(Var('x'),Const(2)),Const(1));
 
 # say @qt4.raku;
 # say @qt4s.raku; # is not the same!
