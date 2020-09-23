@@ -26,7 +26,7 @@ use v6;
 # user	0m3.602s
 # sys	0m0.076s
 
-my Int $nruns=200;
+my Int $nruns= 1 ;
 
 role TermBB[&f] {
     method unTermBB(
@@ -34,7 +34,8 @@ role TermBB[&f] {
         &par:(Str --> Any),
         &const:(Int --> Any),
         &pow:(Any,Int --> Any),
-        &add:(Array[Any] --> Any),
+        &add:( Array[Any] --> Any),
+        # &add:( @ --> Any),
         &mult:(Array[Any] --> Any) 
         --> Any
     ) {
@@ -72,17 +73,25 @@ sub PowBB( TermBB \t, Int \i --> TermBB) {
     }
     ].new;
 }
-sub AddBB( Array[TermBB] \ts --> TermBB) {
+sub AddBB( 
+    Array[TermBB] \ts --> TermBB
+    #  @ts --> TermBB
+    ) {
     TermBB[  sub (\v, \c, \n, \p, \a, \m) { 
         a.( 
+            # map( {.unTermBB( v, c, n, p, a, m )},@ts)
             typed-map( Any, ts, {.unTermBB( v, c, n, p, a, m )} )
         )
     }
     ].new;
 }
-sub MultBB( Array[TermBB] \ts --> TermBB) { 
+sub MultBB(  
+    Array[TermBB] \ts --> TermBB
+    # @ts --> TermBB
+    ) { 
     TermBB[  sub (\v, \c, \n, \p, \a, \m) { 
         m.( 
+            # map( {.unTermBB( v, c, n, p, a, m )},@ts)
             typed-map( Any, ts, {.unTermBB( v, c, n, p, a, m )} )
         )
     }
@@ -97,7 +106,8 @@ sub ppTermBB(TermBB \t --> Str){
         sub const(Int $x --> Any) { "$x" }
         sub pow( Any \t, Int $m --> Any) { t ~ "^$m" } 
         sub add(Array[Any]  \ts --> Any) { "("~join( " + ", ts)~")" }
-        sub mult(Array[Any]  \ts --> Any) { join( " * ", ts) }
+        # sub add( @ts --> Any) { "("~join( " + ", @ts)~")" }
+        sub mult(Array[Any] \ts --> Any) { join( " * ", ts) }
         t.unTermBB( &var, &par, &const, &pow, &add, &mult);
 }
 
@@ -111,6 +121,7 @@ sub evalTermBB( %vars,  %pars, \t) {
         -> Int \x --> Any  {x},
         -> Any \t, Int \m --> Any  { t ** m},
         -> Array[Any] \ts --> Any  { [+] ts},
+        # -> @ts --> Any  { [+] @ts},
         -> Array[Any] \ts --> Any  { [*] ts}
     );
 }
@@ -121,14 +132,17 @@ my Int @vals=();
 for 1 .. $nruns -> Int $c {
 my TermBB \qtermbb1 = AddBB(
     Array[TermBB].new(
+        # @(
     MultBB( 
         Array[TermBB].new(
+        # @(
         ParBB( "a"), 
         PowBB( VarBB( "x"), 2) 
         )
         ),
     MultBB(
         Array[TermBB].new(
+            # @(
             ParBB( "b"), 
             VarBB( "x")
             ) 
@@ -139,14 +153,17 @@ my TermBB \qtermbb1 = AddBB(
 #   x^3 + 1    
 my TermBB \qtermbb2 = AddBB( 
     Array[TermBB].new(
+        # @(
         PowBB( VarBB( "x"), 3), 
         ConstBB($c)
-    )
+        )
+    # )
 );
 
 #   qterm1 * qterm2    
 my TermBB \qtermbb3 = MultBB( 
     Array[TermBB].new(
+        # @(
         qtermbb1, qtermbb2
     ));    
 
