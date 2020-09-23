@@ -4,7 +4,27 @@ use v6;
 In previous articles I have explained two approaches to creating algebraic data types in Raku. They are fine from a static typing perspective, and provide pattern matching against the type alternatives.
 But as we have seen, they have the disadvantage of being rather slow. In this article I will create an alternative for the parse tree data structure which provides the same presentation but is much faster.
 
-The idea is very simple: we will use an `enum`  and a list. 
+The idea is very simple: I use nested lists as the data structure, making use of Raku's dynamic typing. The first element of the list is an `enum` indicating which alternative in a sum type we have selected. 
+The other elements are the actual values stored in the data structure. So a Maybe type will be
+
+enum Maybe <Just Nothing>;
+
+my $just_42 = Just,42;
+my $nothing = Nothing
+
+To make this nicer we create some wrapper functions:
+
+sub Just($x) {
+    Just,$x
+}
+
+And (redundant in this case of course):
+
+sub Nothing { Nothing } 
+
+
+
+
 
 =end
 
@@ -46,7 +66,7 @@ my $nruns=200;
 
 enum Term <Var Par Const Pow Add Mult>;
 
-sub VarT ($v) {
+sub Var ($v) {
     (Var,$v)
 }
 sub ParT ($p) {
@@ -142,11 +162,11 @@ my \qterm3 = (Mult,(
 my \qtermt1 = AddT(
     MultT( 
         ParT("a"), 
-        PowT( VarT( "x"), ConstT(2)) 
+        PowT( Var( "x"), ConstT(2)) 
         ),
     MultT(
         ParT("b"), 
-        VarT("x") 
+        Var("x") 
         ),
     ParT( "c")
 );
@@ -154,7 +174,7 @@ my \qtermt1 = AddT(
 #   x^3 + 1    
 my \qtermt2 = AddT( 
     PowT( 
-          VarT("x"), 
+          Var("x"), 
           ConstT(3)
           ), 
     ConstT($c)    
@@ -168,6 +188,7 @@ my \qtermt3 = MultT(
 # my @qt4 = Add,[(Pow, $(Var,'x'),$(Const,2)),$(Const,1)];
 # my @qt4s = Add,[(Pow, [Var,'x'],[Const,2]),[Const,1]];
 # my @qt4t = AddT(PowT(VarT('x'),ConstT(2)),ConstT(1));
+
 # say @qt4.raku;
 # say @qt4s.raku; # is not the same!
 # say @qt4t.raku;

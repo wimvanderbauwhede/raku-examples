@@ -60,13 +60,13 @@ sub PowUBB(  \t, \i) {
     ].new;
 }
 # Slurpy
-sub AddUBB(  *@ts ) {
+sub AddUBB(  **@ts ) {
     TermUBB[  sub (\v, \c, \n, \p, \a, \m) { 
         a.( map {.unTermUBB( v, c, n, p, a, m )}, @ts )
     }
     ].new;
 }
-sub MultUBB(  *@ts) { 
+sub MultUBB(  **@ts) { 
     TermUBB[  sub (\v, \c, \n, \p, \a, \m) { 
         m.( map {.unTermUBB( v, c, n, p, a, m )}, @ts ) 
         # @ts )
