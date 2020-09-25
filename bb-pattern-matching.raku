@@ -40,13 +40,14 @@ if ($v.alt ~~ &VarBB ) {
     )
 }
 
-multi sub match-alts ($v where {$v.alt ~~ &VarBB}) {
+multi sub match-alts ($v where {$v.alt ~~ &VarBB}
+) {
     say 'Yay!'
 }
-multi sub match-alts ($v
-#  where {$v.alt ~~ &ParBB}
- ) {
+multi sub match-alts ($v) {
     say 'ok'
 }
 
 match-alts($v);
+
+

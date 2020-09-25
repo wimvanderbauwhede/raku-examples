@@ -26,7 +26,7 @@ use v6;
 # user	0m3.602s
 # sys	0m0.076s
 
-my Int $nruns= 1 ;
+my Int $nruns= 200 ;
 
 role TermBB[&f] {
     method unTermBB(

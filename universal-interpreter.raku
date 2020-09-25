@@ -104,17 +104,16 @@ say testBB mbbn;
 # A pair, the simplest product type
 say "\nPair:\n";
 
-role PairBB[ \p ] {
-    has $.unPairBB = p; #:: forall a . (t1 -> t2 -> a) -> a
+role PairBB[ &p ] {
     #:(Any,Any --> Any)
-    method unPairBB_(Callable \p_  --> Any) {
-        p.(p_);
+    method unPairBB(Callable \p_  --> Any) {
+        p(p_);
     }
 }
 
 # To get the elements out of the pair
-sub fst( \p ){ p.unPairBB_(true) }
-sub snd( \p ){ p.unPairBB.(false) }
+sub fst( \p ){ p.unPairBB(true) }
+sub snd( \p ){ p.unPairBB(false) }
 
 # Final pair constructor
 
