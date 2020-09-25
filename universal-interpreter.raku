@@ -101,6 +101,9 @@ my MayBB \mbbn = Nothing;
 say testBB mbb ;
 say testBB mbbn;
 
+my Junction \mbbj = Just (41|42|43);
+say  so (42 == testBB mbbj);
+
 # A pair, the simplest product type
 say "\nPair:\n";
 
@@ -126,11 +129,26 @@ my PairBB \bbp = pair 42,"forty-two";
 
 say fst bbp ;
 say snd bbp ;
+say bbp.WHAT;
 
 my \bbp2 = pair fst( bbp)+1,"forty-three";
 
 say "({fst bbp},{snd bbp})";
 say "({fst bbp2},{snd bbp2})";
+
+say "\nJunctions\n";
+my $sv = "forty-two-three";
+my Junction \bbpj = pair (42|43),$sv;
+
+say fst bbpj ;
+my $sv2 = snd bbpj ;
+say so $sv2 eq $sv;
+
+my \bbpmj = pair 42,("forty-two"|"forty-three");
+say bbpmj.WHAT;
+#my Int \fst_val = fst bbpmj;
+say (fst bbpmj).WHAT ;
+say (snd bbpmj).WHAT ;
 
 
 #  Now let's try something like a*x^2+b*x+c
