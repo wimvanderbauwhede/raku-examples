@@ -12,12 +12,20 @@ role TermBB[&f] {
     }
 }
 
-sub VarBB(\s) { 
+my &VarBB = sub (\s) { 
     my $caller = callframe(0).code;
     TermBB[ 
         sub (\v, \c, \n, \p, \a, \m) { v.(s) }
     ].new( alt => $caller);
 }
+
+my &ParBB = sub (\s) { 
+    my $caller = callframe(0).code;
+    TermBB[ 
+        sub (\v, \c, \n, \p, \a, \m) { c.(s) }
+    ].new( alt => $caller);
+}
+
 
 my $v = VarBB('test');
 
@@ -31,3 +39,15 @@ if ($v.alt ~~ &VarBB ) {
         _
     )
 }
+
+multi sub match-alts ($v where {$v.alt ~~ &VarBB}
+) {
+    say 'Yay!'
+}
+multi sub match-alts ($v) {
+    say 'ok'
+}
+
+match-alts($v);
+
+
