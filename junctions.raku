@@ -101,3 +101,21 @@ say res;
 
 my Junction \pres = phof(&psq,j1); 
 say pres;
+
+say "\nAre Junctions Lazy?\n";
+
+my $ct=0;
+sub show-sq(\v) {
+    #    say v;
+$ct++;
+v*v;
+}
+
+my @vs = 1 ... 10000;
+my \jvs = @vs.any;
+say jvs.WHAT;
+my \jsq = show-sq(jvs);
+
+say  so 1 == jsq;
+
+say $ct == @vs.elems ?? 'No' !! $ct==1 ?? 'Yes' !! 'Maybe' ;
