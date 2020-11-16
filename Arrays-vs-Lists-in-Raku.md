@@ -52,7 +52,7 @@ say @d.elems;           # OUTPUT: «3␤»
 
 ------
 https://docs.raku.org/language/list#The_@_sigil
-The @ sigil§
+The @ sigil
 Variables in Raku whose names bear the @ sigil are expected to contain some sort of list-like object. Of course, other variables may also contain these objects, but @-sigiled variables always do, and are expected to act the part.
 
 By default, when you assign a List to an @-sigiled variable, you create an Array. Those are described below. If instead you want to refer directly to a List object using an @-sigiled variable, you can use binding with := instead.
@@ -61,8 +61,10 @@ my @a := 1, 2, 3;
 
 Arrays
 Arrays differ from lists in three major ways: Their elements may be typed, they automatically itemize their elements, and they are mutable. Otherwise they are Lists and are accepted wherever lists are.
+
 https://docs.raku.org/language/list#Itemization
 Itemization
+
 For most uses, Arrays consist of a number of slots each containing a Scalar of the correct type. Every such Scalar, in turn, contains a value of that type. Raku will automatically type-check values and create Scalars to contain them when Arrays are initialized, assigned to, or constructed.
 
 This is actually one of the trickiest parts of Raku list handling to get a firm understanding of.
@@ -73,6 +75,8 @@ First, be aware that because itemization in Arrays is assumed, it essentially me
 [(1, 2), $(3, 4)].raku.say; # says "[(1, 2), (3, 4)]" 
                             # ...but actually means: "[$(1, 2), $(3, 4)]"
 It was decided all those extra dollar signs and parentheses were more of an eye sore than a benefit to the user. Basically, when you see a square bracket, remember the invisible dollar signs.
+
+
 
 Second, remember that these invisible dollar signs also protect against flattening, so you cannot really flatten the elements inside of an Array with a normal call to flat or .flat.
 
@@ -151,7 +155,26 @@ Forces given object to be evaluated in item context and returns the value of it.
 say item([1,2,3]).raku;              # OUTPUT: «$[1, 2, 3]␤» 
 say item( %( apple => 10 ) ).raku;   # OUTPUT: «${:apple(10)}␤» 
 say item("abc").raku;                # OUTPUT: «"abc"␤»
+
 You can also use $ as item contextualizer.
 
 say $[1,2,3].raku;                   # OUTPUT: «$[1, 2, 3]␤» 
 say $("abc").raku;                   # OUTPUT: «"abc"␤»
+
+--------
+https://docs.raku.org/language/list#Flattening_%22context%22
+Flattening "context"
+When you have a list that contains sub-lists, but you only want one flat list, you may flatten the list to produce a sequence of values as if all parentheses were removed. This works no matter how many levels deep the parentheses are nested.
+
+say (1, (2, (3, 4)), 5).flat eqv (1, 2, 3, 4, 5) # OUTPUT: «True␤»
+This is not really a syntactical "context" as much as it is a process of iteration, but it has the appearance of a context.
+
+Note that Scalars around a list will make it immune to flattening:
+
+for (1, (2, $(3, 4)), 5).flat { .say } # OUTPUT: «1␤2␤(3 4)␤5␤»
+...but an @-sigiled variable will spill its elements.
+
+my @l := 2, (3, 4);
+for (1, @l, 5).flat { .say };      # OUTPUT: «1␤2␤3␤4␤5␤» 
+my @a = 2, (3, 4);                 # Arrays are special, see below 
+for (1, @a, 5).flat { .say };      # OUTPUT: «1␤2␤(3 4)␤5␤»
