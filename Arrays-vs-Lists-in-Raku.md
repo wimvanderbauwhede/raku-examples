@@ -178,3 +178,52 @@ my @l := 2, (3, 4);
 for (1, @l, 5).flat { .say };      # OUTPUT: «1␤2␤3␤4␤5␤» 
 my @a = 2, (3, 4);                 # Arrays are special, see below 
 for (1, @a, 5).flat { .say };      # OUTPUT: «1␤2␤(3 4)␤5␤»
+
+
+--------
+
+https://docs.raku.org/type/Slip#sub_slip
+
+class Slip
+A kind of List that automatically flattens into an outer container
+
+class Slip is List {}
+A Slip is a List that automatically flattens into an outer List (or other list-like container or iterable).
+
+
+To create a Slip, either coerce another list-like type to it by calling the Slip method, or use the slip subroutine:
+
+# This says "1" and then says "2", rather than saying "(1 2)" 
+.say for gather {
+    take slip(1, 2);
+}
+A Slip may also be created by using the prefix:<|> operator. This differs from the slip subroutine in both precedence and treatment of single arguments. In fact, prefix:<|> only takes a single argument, so in that way, it behaves closer to the .Slip method than the slip subroutine.
+
+my $l = (1, 2, 3);
+say (1, slip 2, 3).raku;  # says (1, 2, 3)      , slips 2, 3 into (1, …) 
+say (0, slip $l).raku;    # says (0, $(1, 2, 3)), $l does not break apart 
+say (0, $l.Slip).raku;    # says (0, 1, 2, 3)   , slips from $l into (0, …) 
+say (|$l).raku;           # says slip(1, 2, 3)  , breaks apart $l 
+say (0, (|$l, 4), 5);     # says (0 (1 2 3 4) 5), slips from $l into (…, 4) 
+say (0, ($l.Slip, 4), 5); # says (0 (1 2 3 4) 5), slips from $l into (…, 4) 
+say (0, (slip $l, 4), 5); # says (0 (1 2 3) 4 5), slips ($l, 4) into (0, …, 5) 
+say (0, ($l, 4).Slip, 5); # says (0 (1 2 3) 4 5), slips ($l, 4) into (0, …, 5) 
+
+
+--------
+
+
+class Seq
+An iterable, potentially lazy sequence of values
+
+class Seq is Cool does Iterable does Sequence { }
+A Seq represents anything that can produce a sequence of values. A Seq is born in a state where iterating it will consume the values. Calling .cache on a Seq will make it store the generated values for later access.
+
+Assigning the values of a Seq to an array consumes a Seq that is not lazy. Use the lazy statement prefix to avoid a Seq from being iterated during the assignment:
+
+# The Seq created by gather ... take is consumed on the spot here. 
+my @a = gather do { say 'consuming...'; take 'one' };  # OUTPUT: «consuming...␤» 
+ 
+# The Seq here is only consumed as we iterate over @a later. 
+my @a = lazy gather do { say 'consuming...'; take 'one' };  # outputs nothing. 
+.say for @a;  # OUTPUT: «consuming...␤one␤» 
