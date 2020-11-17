@@ -1,27 +1,44 @@
 use v6;
 
-# =begin pod
-# In previous articles I have explained two approaches to creating algebraic data types in Raku. They are fine from a static typing perspective, and provide pattern matching against the type alternatives.
-# But as we have seen, they have the disadvantage of being rather slow. In this article I will create an alternative for the parse tree data structure which provides the same presentation but is much faster.
+=begin pod
+In previous articles I have explained two approaches to creating algebraic data types in Raku. They are fine from a static typing perspective, and provide pattern matching against the type alternatives.But as we have seen, they have the disadvantage of being rather slow. 
+In this article I will create an alternative for the parse tree data structure which provides the same presentation but is much faster.
 
-# The idea is very simple: I use nested lists as the data structure, making use of Raku's dynamic typing. The first element of the list is an `enum` indicating which alternative in a sum type we have selected. 
-# The other elements are the actual values stored in the data structure. So a Maybe type will be
+The idea is very simple: I use nested lists as the data structure, making use of Raku's dynamic typing.
+The first element of the list is an `enum` indicating which alternative in a sum type we have selected. 
+The other elements are the actual values stored in the data structure. 
 
-# enum Maybe <Just Nothing>;
+So a Maybe type will be
 
-# my $just_42 = Just,42;
-# my $nothing = Nothing
+enum Maybe <Just Nothing>;
+
+my $just_42 = (Just,42);
+my $nothing = (Nothing);
 
 # To make this nicer we create some wrapper functions:
 
-# sub Jus($x) {
-#     Just,$x
-# }
+sub Just($x) {
+    (Just,$x)
+}
 
 # And (redundant in this case of course):
 
-# sub Nothing { Nothing } 
-# =end pod
+sub Nothing { (Nothing } 
+
+We can now say
+
+my $just_42 = Just 42;
+
+This is of course not a proper data type: the type of `$just_42` is `List`, not `Maybe`.
+To get an actual type we'd need a role
+
+role Maybe[\t,\v] {
+    has $.tag=t;
+    has $.value=v;
+}
+
+So I should try that our for speed
+=end pod
 
 my $nruns=200;
 
@@ -93,8 +110,6 @@ sub ppTerm(\t) {
             "("~join( " + ", @pts)~")"
         }
         when Mult { 
-    #         say t[1];
-    # exit;
             my @pts = map {ppTerm($_)}, |t[1];
             join( " * ", @pts)
         }

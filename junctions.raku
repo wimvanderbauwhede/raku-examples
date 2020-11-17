@@ -101,3 +101,12 @@ say res;
 
 my Junction \pres = phof(&psq,j1); 
 say pres;
+
+
+
+my $ij = 11 | 22;
+my Int $ivj = sq($ij); # Type error!
+my $sj = '11' | '22';
+say $sj.WHAT; #=>(Junction)
+
+my Junction $svj = sq($sj); # Type error!

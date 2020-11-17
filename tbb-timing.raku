@@ -26,6 +26,30 @@ use v6;
 # user	0m3.602s
 # sys	0m0.076s
 
+# 2020.09
+# tbb
+#200
+#390600
+
+#real    0m8.605s
+#user    0m9.131s
+#sys 0m0.124s
+
+#200
+#390600
+
+#real    0m3.702s
+#user    0m4.225s
+#sys 0m0.112s
+
+# no bb
+#200
+#390600
+
+#real    0m2.849s
+#user    0m3.511s
+#sys 0m0.108s
+
 my Int $nruns= 200 ;
 
 role TermBB[&f] {
