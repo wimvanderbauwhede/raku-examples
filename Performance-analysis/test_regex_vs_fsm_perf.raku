@@ -1,51 +1,68 @@
 use v6;
-#use Data::Dumper;
 
-# perl
-# ver=1
-# real	0m1.999s
-# user	0m1.998s
-# sys	0m0.000s
-# ver=2
-# real	0m0.783s
-# user	0m0.779s
-# sys	0m0.004s
-#raku
-#ver=1
-# real	0m20.033s
-# user	0m20.110s
-# sys	0m0.040s
-#ver=2
-# real	0m9.973s
-# user	0m10.094s
-# sys	0m0.020s
-
-
+constant VER=@*ARGS[0];
+constant NITERS = 100_000;
 
 my $str='This means we need a stack per type of operation and run until the end of the expression';
 
-my @chrs =  $str.comb;#split('',$str);
+my @chrs =  $str.comb;#split('',$str); # No advantage in making this a List or Array
+# my \chrs__ = $str.comb; # SLOW
+# say chrs_.raku;die;
 #say @chrs;
 #exit;
 # The regex version is 1.45s, the other version 3.25s (mean over 10 runs)
-constant VER=@*ARGS[0];
-for 1 .. 1_000_000 -> $ct {
 
-my @words=();
+for 1 .. NITERS -> $ct {
+# my \chrs_=chrs__.cache;
+    my @words=();
     if (VER==0) {
         my $word='';
         map(-> \c { 
-                    if (c ne ' ') {
+            if (c ne ' ') {
                 $word ~= c;
             } else {
                 push @words, $word;
                 $word='';
             }
         }, @chrs);
-        
-} elsif (VER==1) {  
-    my @chrs_ =  @chrs;
-  my $word='';      
+        push @words, $word;
+        # say @words;
+        # exit;
+} elsif VER==10 {     # neat but way too slow!    
+        my \res = reduce(
+        -> \acc, \c { 
+            if (c ne ' ') {
+                acc[0],acc[1] ~ c;
+            } else {
+                ( |acc[0], acc[1] ),'';
+            }
+        }, ((),''), |@chrs);
+        my @words = |res[0],res[1];
+        # say @words;
+        # exit;        
+} elsif VER==11 {     
+        my $str='This means we need a stack per type of operation and run until the end of the expression';
+        # my $word='';
+        # while $str.Bool {   
+        while my $idx=$str.index( ' ' ) {
+        # while $str.Bool and not $str.starts-with( ' ' ) {
+            # $word ~= $str.substr(0,1);
+            # $str.=substr(1);
+            push @words, $str.substr(0,$idx);
+            $str .= substr($idx+1);
+            # say $str;
+            # say $word;
+        }
+        push @words, $str;
+        # $str .= trim-leading;
+                # push @words, $word;# if $word.Bool;
+                # $word='';                
+        # }
+        # say @words;
+        # exit;         
+} elsif VER==1 {  
+        my @chrs_ = @chrs;
+        my $word='';      
         while @chrs_ {
             my $chr=  shift @chrs_;
             if ($chr ne ' ') {
@@ -56,8 +73,9 @@ my @words=();
             }
         }
         push @words, $word;
-        
-    } elsif (VER==2) {
+        # say @words;
+        # exit;        
+} elsif VER==2 {
         my $str='This means we need a stack per type of operation and run until the end of the expression';
 
         while $str.Bool {
@@ -69,19 +87,21 @@ my @words=();
                 $str ~~s/^\s+//;
             } 
         }
-    
-    } elsif (VER==3) {
+        # say @words;
+        # exit;      
+} elsif VER==3 {
         my $word='';
 
-    } elsif (VER==4) {
+} elsif VER==4 {
         my @chrs_ =  @chrs;
         my $word='';      
 
-    } else {
+} elsif VER==5 {
             my $str='This means we need a stack per type of operation and run until the end of the expression';
-    }    
+    
 #    say @words.raku if $ct==2;  
     # exit;
 }
-      
+
+}
 

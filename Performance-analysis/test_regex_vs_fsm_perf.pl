@@ -42,6 +42,22 @@ my @words=();
             }
         }
         push @words, $word;
+} elsif ($ver==11) {     
+        my $str='This means we need a stack per type of operation and run until the end of the expression';
+        # my $word='';
+        # while $str.Bool {   
+        while ((my $idx=index($str, ' ' ))>0) {
+        # while $str.Bool and not $str.starts-with( ' ' ) {
+            # $word ~= $str.substr(0,1);
+            # $str.=substr(1);
+            push @words, substr($str,0,$idx);
+            $str = substr($str,$idx+1);
+            # say $str;
+            # say $word;
+        }
+        push @words, $str;
+        # say join(',', @words);
+        # exit;         
     } elsif($ver==2) {
     my $str='This means we need a stack per type of operation and run until the end of the expression';
 
