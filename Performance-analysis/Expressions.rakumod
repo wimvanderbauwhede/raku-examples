@@ -91,22 +91,19 @@ sub parse_expression_no_context($str_)  is export  {
         $str .= trim-leading;
         # Handle prefix -,+,.not.
         given $str {
-            when .starts-with('-') {
-                $str.=substr(1);
+            when  s/^\-// {
                 $state=4;
             }    
-            when $str.starts-with('+') {
-                $str.=substr(1);
+            when s/^\+// {
                 $state=3;
             }    
-            when .starts-with('.not.') {
-                $str.=substr(5);
+            when s/\.not\.// {
                 $state=21;
             }    
         }
         # Remove whitespace after prefix
         if ($state ) {
-            $str .= trim-leading;
+            $str ~~ s/^\s*//;
         }
 
         given $str {
@@ -725,6 +722,665 @@ So it looks like I need at least 6 bits, so we'll need <<8 and 0xFF
         }
     }
 } # END of parse_expression_no_context
+
+sub parse_expression_no_context_regex($str_)  is export  { 	
+    my $str = $str_;
+    my $max_lev=11; # levels of precedence
+    my $prev_lev=0;
+    my $lev=0;
+    # Let's try an array first
+    my @ast=[];
+    my $op = Nil;
+    my $state=0; # I will use state=8/9/10 as "has prefix .not. - + "
+    my $error=0;
+    # I will not treat * as a proper prefix
+
+
+    my Array $expr_ast=[];
+    my Array $arg_expr_ast=[];
+    # say ':::',$arg_expr_ast.WHAT;die;
+    my $has_funcs=0;
+    # my $empty_arg_list=0;
+    while $str {
+        $error=0;
+        # Remove whitespace
+        $str .= trim-leading;
+        # Handle prefix -,+,.not.
+        given $str {
+            when .starts-with('-') {
+                $str.=substr(1);
+                $state=4;
+            }    
+            when $str.starts-with('+') {
+                $str.=substr(1);
+                $state=3;
+            }    
+            when .starts-with('.not.') {
+                $str.=substr(5);
+                $state=21;
+            }    
+        }
+        # Remove whitespace after prefix
+        if ($state ) {
+            $str .= trim-leading;
+        }
+
+        given $str {
+            # First check for a variable, then trim and then see if there is a paren.
+            when 'a' le .substr(0,1).lc le 'z' {
+                #variable
+                my $var= .substr(0,1);
+                .=substr(1);
+                my $c = .substr(0,1);
+                while 'a' le $c.lc le 'z' or $c eq '_' or '0' le $c le '9' {
+                    $var~=$c;
+                    $_ .=substr(1);
+                    $c = .substr(0,1);
+                }
+                .=trim-leading;
+                if .starts-with('(') {
+                    # array access or function call;
+                    .=substr(1); # remove the '('
+                    $has_funcs=1;
+                    my $arg_expr_ast;
+                    if not .starts-with(')') { # non-empty arg list
+                        ($arg_expr_ast,$str, my $err, my $has_funcs2) = parse_expression_no_context_regex($str);
+                        # $_=$str2;
+                        $has_funcs||=$has_funcs2;
+                    } else { # empty arg list                       
+                        $str .= substr(1); # removed ')'
+                        $str .= trim-leading;
+                        $arg_expr_ast=[];
+                    }
+                    if ($defaultToArrays) {
+                        $expr_ast=[10,$var,$arg_expr_ast];
+                    } else {
+                        $expr_ast=[1,$var,$arg_expr_ast];
+                    }
+                    
+                    # f(x)(y)
+                    if .starts-with('(') {
+                        (my $arg_expr_ast2,$str, my $err2,my $has_funcs2)=parse_expression_no_context_regex($_);
+                        # $_=$str2;
+                        $expr_ast=[1, $var,[14,$arg_expr_ast,$arg_expr_ast2[1]]];
+                        $has_funcs||=$has_funcs2;
+                    }
+
+                } else {
+                    $expr_ast=[2,$var];
+                }
+            }
+
+            when .starts-with('[') {
+                # constant array constructor expr
+                .=substr(1);
+                ($expr_ast,$str, my $err,my $has_funcs2)=parse_expression_no_context_regex($_);
+                # $_ = $str2;
+                $has_funcs||=$has_funcs2;
+                #$expr_ast=['(/',$expr_ast];
+                $expr_ast= [28,$expr_ast];
+                if $err {
+                    return [$expr_ast,$str, $err,0];
+                }
+            } 
+            when .starts-with('(') { 
+                .=substr(1);
+                my $str2 = .trim-leading;
+                if $str2.starts-with('/') {
+                # constant array constructor expr
+                    $str2 .=substr(1);
+                    ($expr_ast,$str, my $err,my $has_funcs2)=parse_expression_no_context_regex($str2);
+                    # $_ = $str3;
+                    $has_funcs||=$has_funcs2;
+                    #$expr_ast=['(/',$expr_ast];
+                    $expr_ast= [28,$expr_ast];
+                    if $err {
+                        return [$expr_ast,$str, $err,0];
+                    }
+                } else {
+                    # $_.=substr(1);                            
+                    # paren expr, I use '{' as it appears not to be used. Would make send to call it '('
+                    ($expr_ast,$str, my $err,my $has_funcs2)=parse_expression_no_context_regex($_);
+                    # $_=$str2;
+                    $has_funcs||=$has_funcs2;
+                    $expr_ast=[0,$expr_ast];
+                    if $err {#say "ERR 2";
+                        return [$expr_ast,$str, $err,0];
+                    }
+                }
+            }
+            # Apparently Fortran allows '$' as a character in a variable name but I think I'll ignore that.
+            # I allow _ as starting character because of the placeholders
+                    
+            when 'a' le .substr(0,1).lc le 'z' { die 'BOOM! SHOULD NOT COME HERE';
+                #variable
+                my $var= .substr(0,1);
+                .=substr(1);
+                my $c = .substr(0,1);
+                while 'a' le $c.lc le 'z' or $c eq '_' or '0' le $c le '9' {
+                    my $var~=$c;
+                    .=substr(1);
+                    $c = .substr(0,1);
+                }
+                $expr_ast=[2,$var];
+            }
+            when .starts-with('__PH') {    
+                # placeholders
+                my $ns = .index('H')+1;
+                # from there
+                my $ne = .index('__',$ns);
+                # get the substr, we know it is a number
+                my $nn = $ne-$ns;
+                my $n = .substr($ns,$nn);
+
+                my $phs = '__PH'~$n~'__'; 
+                .=substr($nn+6);
+                # $str.=trim-leading;
+                #  Now it is possible that there are several of these in a row!
+                while .starts-with('__PH') {
+                    
+                    # now find the number
+                    my $ns = .index('H')+1;
+                    # from there
+                    my $ne = .index('__',$ns);
+                    # get the substr, we know it is a number
+                    my $nn = $ne-$ns;
+                    my $n = .substr($ns,$nn);
+                    $phs ~= '__PH'~$n~'__'; 
+                     .=substr($nn+6);
+                    # $str.trim-leading;
+                    # say $expr_ast;
+                }        
+                $expr_ast=[33,$phs]; 
+            }
+            when  .starts-with('.true.') {            
+                # boolean constants
+                $expr_ast=[31,'.true.'];
+            }
+            when  .starts-with('.false.') {
+                # boolean constants
+                $expr_ast=[31,'.false.'];
+            }
+            when '0' le .substr(0,1) le '9' or .substr(0,1) eq '.' { # could be a real const, carry on
+                my $sep='';
+                my $sgn='';
+                my $exp='';
+                my $real_const_str='';
+
+                my $h = .substr(0,1);
+                my $mant=$h;
+                $str .=substr(1);
+                my $idx=0;
+                $h = .substr(0,1);
+                while '0' le $h le '9' or $h eq '.' {
+                    $mant ~=$h;
+                    $h = .substr(++$idx,1);
+                }
+                $str .= substr($idx);
+
+                if not ($mant.ends-with('.') and .starts-with('eq',:i)) { 
+                    # if $h eq 'e' or $h eq 'd' or $h eq 'q' {
+                    if $h.lc eq 'e' | 'd' | 'q' {
+                        $sep = $h;
+                        my $idx=1;
+                        $h =.substr(1,1);
+                        if $h eq '-' or $h eq '+' {
+                            ++$idx;
+                            $sgn = $h;
+                            $h =.substr($idx,1);
+                        }
+                        while '0' le $h le '9' {
+                            ++$idx;
+                            $exp~=$h;
+                            $h =.substr($idx,1);
+                        }
+                        $str .= substr($idx);
+                    # so we have $mant $sep $sgn $exp
+                        $real_const_str="$mant$sep$sgn$exp";
+                        # reals
+                        $expr_ast=[30,$real_const_str];
+                    } elsif index($mant,'.').Bool {
+                    # means $h is no more part of the number, emit the $mant only
+                        $real_const_str=$mant;
+                        # real
+                        $expr_ast=[30,$real_const_str];
+                    }
+                    else { # No dot and no sep, so an integer
+                        # integer
+                        $expr_ast=[29,$mant];   
+                    }
+                } else { # .eq., backtrack and carry on
+                    $str ="$mant$str";        
+                    proceed;
+                }            
+            }
+            when .starts-with('*') and '0' le (my $h=.substr(1,1)) le '9' {
+                my $addr=$h;
+                my $idx=2;
+                $h = .substr($idx,1);
+                while '0' le $h le '9' {
+                    ++$idx;
+                    $addr~=$h;
+                    $h =.substr($idx,1);
+                }
+                $str .= substr($idx);            
+                # The '*' is for "alternate returns", a bizarre F77 feature.
+                # The integer following the * is a label 
+                $expr_ast=[34,$addr];
+            }        
+        # TODO see file with old content: spaces in numbers
+
+            when .starts-with('*') {        
+                .=substr(1);        
+                # '*' format for write/print
+                $expr_ast=[32,'*'];
+            }
+            # Maybe I should handle string constants as well
+            # Although we use placeholders so they should not occur
+            when  .starts-with("'") and (my $cq= .index("'",1)) >1 {
+                my $str_const = .substr(0,$cq+1);
+                $expr_ast=[32,$str_const ];
+                .=substr($cq+1);
+            }
+            # Here we return with an error value
+            # What I could do is say:
+            # if the next token is ':' or the pending op is ':' (12)
+            when .starts-with(':') or $op == 12 {
+                    # Return a blank
+                    $expr_ast=[35,'']
+            }
+            default { # error
+                    $error=1;
+                    return [$expr_ast, $_, $error,0];
+            }    
+        } # given
+
+        # say "STR2: "~$str.raku;
+        # say 'expr_ast: '~$expr_ast.raku;
+        # say 'state: '~$state;
+        # If state is not 0 there is a prefix
+        if ($state) {
+            $expr_ast=[$state,$expr_ast];
+        }
+        #say "STR before operator: $str";
+
+        # Strip whitespace
+        $str .= trim-leading;
+        
+        if (!$str.Bool) {    
+            last;
+        }
+
+        given $str {
+            when .starts-with(',') { # comma
+                .=substr(1);
+                # just set a state here
+                $state=6;
+            }
+            when .trans(' ' => '').starts-with( '/)') 
+            or .starts-with( ']')
+            { # closing paren for constant array constructor
+                if .starts-with( '/') {
+                    .=substr(1);
+                    .=trim-leading;
+                }
+                .=substr(1);
+                # Again this is like falling off the end of the string
+                # if  @{$arg_expr_ast} is not empty, then this must become the ast to return
+                # after appending the final value
+                if $arg_expr_ast {
+                    # Just set a state here
+                    $state=7; # because the operator has already been set
+                }
+                # otherwise it is quite the same as the end of the string
+                else {
+                    # say "LEAVE WHILE: closing paren";die $state;
+                    last;
+                }
+            }        
+            when .starts-with(')') { # closing paren
+            
+                .=substr(1);
+                # say 'closing paren '~ $_;
+                # Again this is like falling off the end of the string``    `
+                # if  @{$arg_expr_ast} is not empty, then this must become the ast to return
+                # after appending the final value
+                if ( $arg_expr_ast  ) {
+                    # Just set a state here
+                    $state=7;                
+                }
+                # otherwise it is quite the same as the end of the string
+                else {
+                    # say "LEAVE WHILE: closing paren";
+                    last;
+                }
+            } 
+            default { 
+            # warn "HERE OPS $str";
+            # Operators
+=begin pod
+Operator precedence
+Level
+    Scalars
+0
+    Arithmetic
+1        right       ** NOTE F ** S ** Z means F ** (S ** Z)
+2        right       unary + and - NOTE X ** -A * Z means X ** (-(A * Z)) => Handled in state=0
+3        left        * / 
+4        left        + - 
+    Character
+5        left         //
+         left         :   NOTE I put this here, main purpose is array dims but it also works for substring ranges
+         left         =   NOTE I put this here, main purpose is implicit do. Actually this should be a separate level between Relational and Logical
+    Relational
+6        nonassoc    < > <= >= .lt. .gt. .le. .ge.
+7        nonassoc    == != .eq. .ne. 
+    Logical
+8        right       .not.
+9        left        .and. 
+10        left        .or. 
+11        left        .xor. .eqv. .neqv.
+
+So it looks like I need at least 6 bits, so we'll need <<8 and 0xFF
+
+=end pod
+
+
+            $prev_lev=$lev;
+            my $str2=$str;
+            given $str2 {
+                when .starts-with('+')  {
+                    $str2 .= substr(1);
+                    $lev=4;
+                    #$op='+';
+                    $op=3;
+                }
+                when .starts-with('-') {
+                    $str2 .= substr(1);
+                    $lev=4;
+                    #$op='-';
+                    $op=4;
+                }
+                when .starts-with('**')  {
+                    $str2 .= substr(2);
+                    # We store this incorrectly left-assoc, the emitter can fix it.
+                    $lev=2;
+                    #$op='**';
+                    $op=8;
+                } 
+                when .starts-with('*')  {
+
+                    $str2 .= substr(1);                    
+                    # say 'MULT: <',$str2, '>';
+                    $lev=3;
+                    #$op='*';
+                    $op=5;
+                }
+                when .starts-with('//')  {
+                    $str2 .= substr(2);
+                    $lev=5;
+                    #$op='//';
+                    $op=13;
+                } 
+                when .starts-with(':') {
+                    $str2 .= substr(1);
+                    $lev=5;
+                    #$op=':';
+                    $op=12;
+                } 
+                when .starts-with('/') {
+                    $str2 .= substr(1);
+                    $lev=3;
+                    #$op='/';
+                    $op=6;
+                } 
+                when .starts-with( '>=' ) {
+                    $str2 .= substr(2);
+                    $lev=6;
+                    #$op='>=';
+                    $op=20;
+                }
+                when .starts-with( '<=' ) {
+                    $str2 .= substr(2);
+                    $lev=6;
+                    #$op='<=';
+                    $op=19;
+                }                
+                when .starts-with('<') {
+                    $str2 .= substr(1);
+                    $lev=6;
+                    #$op='<';
+                    $op=17;
+                } 
+                when .starts-with('>') {
+                    $str2 .= substr(1);
+                    $lev=6;
+                    #$op='>';
+                    $op=18;
+                } 
+                when .starts-with('==') {
+                    $str2 .= substr(2);
+                    $lev=7;
+                    #$op='==';
+                    $op=15;
+                } 
+                when .starts-with('!=') {
+                    $str2 .= substr(2);
+                    $lev=7;
+                    #$op='/=';
+                    $op=16;
+                } 
+                when .starts-with('=') {
+                    $str2 .= substr(1);
+                    $lev=5;
+                    #$op='=';
+                    $op=9;
+                } 
+                when .starts-with('.') and  .index( ' ' ) and (.index( ' ' ) < (my $eidx = .index('.',2 ))) {
+                    
+                    # Find the keyword with spaces
+                    my $match = .substr(0, $eidx+1);
+                    # remove the spaces
+                    $match .= trans( ' ' => '' );
+                    # update the string
+                    $str2 = $match ~ .substr( $eidx+1);
+                    proceed;
+                }
+
+                when .starts-with( '.ge.') {
+                    # say 'H!';
+                    $str2 .= substr(4);
+                    $lev=6;
+                    #$op='>=';
+                    $op=20;
+                }
+                when .starts-with( '.lt.') {
+                    $str2 .= substr(4);
+                    $lev=6;
+                    #$op='<';
+                    $op=17;
+                } 
+                when .starts-with( '.gt.') {
+                    $str2 .= substr(4);
+                    $lev=6;
+                    #$op='>';
+                    $op=18;
+                } 
+                when .starts-with( '.eq.') {
+                    $str2 .= substr(4);
+                    $lev=7;
+                    #$op='==';
+                    $op=15;
+                } 
+                when .starts-with( '.ne.') {
+                    $str2 .= substr(4);
+                    $lev=7;
+                    #$op='/=';
+                    $op=16;
+                } 
+                when .starts-with( '.and.') {
+                    $str2 .= substr(5);
+                    $lev=9;
+                    #$op='.and.';
+                    $op=22;
+                } 
+                when .starts-with( '.or.') {
+                    $str2 .= substr(4);
+                    $lev=10;
+                    #$op='.or.';
+                    $op=23;
+                } 
+                when .starts-with( '.xor.') {
+                    $str2 .= substr(5);
+                    $lev=11;
+                    #$op='.xor.';
+                    $op=24;
+                } 
+                when .starts-with( '.eqv.') {
+                    $str2 .= substr(5);
+                    $lev=11;
+                    #$op='.eqv.';
+                    $op=25;
+                } 
+                when .starts-with( '.neqv.') {
+                    $str2 .= substr(6);
+                    $lev=11;
+                    #$op='.neqv.';
+                    $op=26;
+                } 
+            
+                default {
+                    #say "LEAVE WHILE: ERROR, str $str does not match any op";
+                    $error=1;
+                    last;
+                }
+            } # nested given
+            $str=$str2;
+            # $str = $_;
+            # say 'OUT  wit state = 5; ',$str,';',$_,';',$str2;
+            $state=5;        
+        } # default of nesting given
+    } # given
+    # say 'EXPR AST: ',$expr_ast.raku;
+        if ($state==5 and not defined $op) {
+        	#say "ERR 5";
+            $error=1;
+        	return [$expr_ast, $str, $error,0];
+        }
+        # Append to the AST
+        if $state==5 {
+            if $prev_lev==0 { # start            
+                @ast[$lev]=[$op,$expr_ast];
+                # say "OP START $lev ",@ast.raku;
+            } 
+            elsif $prev_lev < $lev { # '*' < '+'
+                push @ast[$prev_lev],$expr_ast;
+                if not defined @ast[$lev] {
+                    @ast[$lev]=@ast[$prev_lev];
+                } else {
+                    push @ast[$lev], @ast[$prev_lev];
+                }
+                @ast[$prev_lev] = Nil;
+                @ast[$lev] = [$op, @ast[$lev]];
+            } elsif $prev_lev > $lev {
+                @ast[$lev]=[$op, $expr_ast];
+            } elsif $lev==$prev_lev {
+                push @ast[$lev],$expr_ast;
+                @ast[$lev]=[$op, @ast[$lev]];
+            }
+            $state=0;
+            # say "OP STATE (5) $lev ",@ast.raku;
+        } 
+        elsif $state == 6 or $state==7 {
+            # warn "$state $str";
+            # This is the same as end of str, except we need to keep parsing afterwards
+            # So we do the same as in that case
+            if not defined @ast[$lev] {
+                @ast[$lev] = $expr_ast;
+            } 
+            else {
+               push @ast[$lev], $expr_ast;
+            }
+            # Now determine the highest level; fold the lower levels into it
+            if @ast.elems == 1 {
+                # say 'HERE ARG EXPR AST ';
+                push $arg_expr_ast,@ast[0];
+            } 
+            else {
+                for 1 .. $max_lev -> $tlev {
+                    if not defined @ast[$tlev+1] {
+                        @ast[$tlev+1] = @ast[$tlev] if defined @ast[$tlev] and @ast[$tlev];
+                    } 
+                    else {
+                        push @ast[$tlev+1], @ast[$tlev] if defined @ast[$tlev] and @ast[$tlev];
+                    }
+                }            
+                # say  $arg_expr_ast.WHAT;  
+                # say  $arg_expr_ast.raku;  
+                push $arg_expr_ast, @ast[$max_lev+1];
+            }
+            if $state==6 {
+                @ast=[];
+                $state=0;
+                $prev_lev=0;
+                $lev=0;
+            } 
+            else { # state==7
+                # Now we return this as the ast
+                # say "ERR 6 $error $str";
+                # warn Dumper([27,@{$arg_expr_ast}],$str,$error,$has_funcs);
+                return( [[27,|$arg_expr_ast],$str,$error,$has_funcs]);
+            } 
+        }
+    } # while
+    # say "TEST: $TEST";
+    
+    # So when we fall off the end of the string we need to clean up
+    # There is an $expr_ast pending
+    # say 'AST: ',@ast.raku;
+    # say 'EXPR AST:',$expr_ast.raku;
+    # say 'ARG EXPR AST:',$arg_expr_ast.raku;
+    # say 'STR: ',$str;
+    if not defined @ast[$lev] {
+    # die $lev~@ast.raku if $expr_ast[0] == 10;
+        @ast[$lev] = $expr_ast;
+    } else {
+        push @ast[$lev], $expr_ast;
+    }
+    if $arg_expr_ast { 
+        if @ast.elems == 1 {
+            push $arg_expr_ast,@ast[0];
+        } else {
+            for  1 .. $max_lev -> $tlev {
+                if not defined @ast[$tlev+1] {
+                    @ast[$tlev+1] = @ast[$tlev] if defined @ast[$tlev] and @ast[$tlev];
+                } else {
+                    push @ast[$tlev+1], @ast[$tlev] if defined @ast[$tlev] and @ast[$tlev];
+                }
+            }            
+            push $arg_expr_ast,@ast[$max_lev+1];
+        }
+        #say "ERR 7 $error";
+        return [[27,|$arg_expr_ast],$str,$error,$has_funcs];
+    } else {
+        # Now determine the highest level; fold the lower levels into it
+        if @ast.elems == 1 {
+            # die 'BOOM ' ~ @ast[0].raku;
+            return [@ast[0],$str,$error,$has_funcs];
+        } else {
+            # FOR here cut out
+            for  1 .. $max_lev -> $tlev {
+                if not defined @ast[$tlev+1] {
+                    @ast[$tlev+1] = @ast[$tlev] if defined @ast[$tlev] and @ast[$tlev];
+                } else {
+                    push @ast[$tlev+1], @ast[$tlev] if defined @ast[$tlev] and @ast[$tlev];
+                }
+            }
+            #say "ERR 8 $error";
+            return [@ast[$max_lev+1],$str,$error,$has_funcs];
+        }
+    }
+} # END of parse_expression_no_context_regex
 
 
 #  0    1    2    3    4    5    6    7    8    9    10   11   12   13    14
