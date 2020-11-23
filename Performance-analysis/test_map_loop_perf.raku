@@ -4,66 +4,57 @@ constant CASE=@*ARGS[0];
 constant NITERS = 2_000_000;
 if (CASE==0) {
 # 2.6 s 
-            my @res=();
-            my @src=();
+    my @res=();
+    my @src=();
 
-            for 1..NITERS -> $elt {
-                push @src, $elt;
-            }
+    for 1..NITERS -> $elt {
+        push @src, $elt;
+    }
 
-            for @src -> $elt {
-                push @res, 2*$elt+1;
-            }
+    for @src -> $elt {
+        push @res, 2*$elt+1;
+    }
 
 } elsif (CASE==1) {
 # 3.3s 
-            my @src = map {$_}, 1 .. NITERS;
-            my @res = map {2*$_+1}, @src;
+    my @src = map {$_}, 1 .. NITERS;
+    my @res = map {2*$_+1}, @src;
 
 } elsif (CASE==2) {
         # 3.8s
-            my @res=();
-            my @src=();
+    my @res=();
+    my @src=();
 
-            for 0..NITERS-1 -> $idx {
-                my $elt=$idx+1;
-                @src[$idx] = $elt;
-            }
+    for 0..NITERS-1 -> $idx {
+        my $elt=$idx+1;
+        @src[$idx] = $elt;
+    }
 
-            for 0..NITERS-1 -> $idx {
-                my $elt=@src[$idx];
-                @res[$idx] = 2*$elt+1;
-            }
+    for 0..NITERS-1 -> $idx {
+        my $elt=@src[$idx];
+        @res[$idx] = 2*$elt+1;
+    }
 } elsif (CASE==3) {
         # 4.4s
-            my @res=();
-            my @src=();
-            my $idx=0;
-            loop ($idx=0;$idx < NITERS;++$idx) {
-                my $elt=$idx+1;
-                @src[$idx] = $elt;
-            }
-            $idx=0;
-            loop ($idx=0;$idx < NITERS;++$idx) {
-                my $elt=@src[$idx];
-                @res[$idx] = 2*$elt+1;
-            }
+    my @res=();
+    my @src=();
+    loop (my $idx=0;$idx < NITERS;++$idx) {
+        my $elt=$idx+1;
+        @src[$idx] = $elt;
+    }
+    loop (my $idx2=0;$idx2 < NITERS;++$idx2) {
+        my $elt=@src[$idx2];
+        @res[$idx2] = 2*$elt+1;
+    }
 } elsif (CASE==4) {
     # 2.5s 
     my @src = ();
     my @res=();
     push @src, $_ for 1 .. NITERS;
     push @res, 2*$_+1 for @src;
-    # say @res;
 } elsif (CASE==5) {
     my @src = ($_ for 1 .. NITERS);
-    # say @src;
     my @res= (2*$_+1 for @src);
-    # push @src, $_ for 1 .. NITERS;
-    # push @res, 2*$_+1 for @src;
-    # say @res;
-
-    
 }
 
 # 000 suffix for push

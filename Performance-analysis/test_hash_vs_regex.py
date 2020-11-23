@@ -1,4 +1,7 @@
 import re
+import sys
+VER=int(sys.argv[1])
+
 str = 'READ( 1, 2, ERR=8, END=9, IOSTAT=N ) X'.lower()
 info={}
 
@@ -14,11 +17,15 @@ count=0
 # real	0m49.012s
 # user	0m49.003s
 # sys	0m0.004s
-
-for i in range(1,100_000_001):
-#if re.search('read',str) :    
-     if 'ReadCall' in info:
-        count=count+i;
-    
+NITERS = 100_000_000
+if VER==1 :
+    for i in range(1,NITERS+1):
+        # print(i)
+        if re.search('read',str) :    
+            count=count+i;
+else:    
+    for i in range(1,NITERS+1):
+        if 'ReadCall' in info:
+            count=count+i;
 
 print(count)

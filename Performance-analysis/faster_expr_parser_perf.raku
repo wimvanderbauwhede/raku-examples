@@ -1,16 +1,13 @@
-#!/usr/bin/env perl
-use v5.28;
-use Data::Dumper;
-use RefactorF4Acc::Config;
-use RefactorF4Acc::Parser::Expressions qw( parse_expression parse_expression_no_context );
+use v6;
 
-$RefactorF4Acc::Parser::Expressions::defaultToArrays=1;
+use Expressions;
+$Expressions::defaultToArrays=1;
 
-my $CASE=$ARGV[0];
-my $NITERS = 2_000;
+constant CASE=@*ARGS[0].Num;
+constant NITERS = 2_00;
 
-for (1..$NITERS) {
-for my $str (
+for 1 .. NITERS {
+for 
     'z(j+i,k*km)*p(i+1,j+jm)',
     'i+1',
     'v( i + 1 )',
@@ -18,13 +15,13 @@ for my $str (
     'z(j,k)',
     'j+k',
     'i-im',        
-        "5+42+ +6/42/44-45*7", 
-        '6*7', 
-        '44 - -2', 
-        '(1+2*3)+3+4/5',
-        '4+(22*(33*44+1)+77)/2',
-      '1 .and. .not. 0','1 <= 2', 
-      '(3.5 < 4) .or. (1 == 0.0)',
+    "5+42+ +6/42/44-45*7", 
+    '6*7', 
+    '44 - -2', 
+    '(1+2*3)+3+4/5',
+    '4+(22*(33*44+1)+77)/2',
+    '1 .and. .not. 0','1 <= 2', 
+    '(3.5 < 4) .or. (1 == 0.0)',
     '8',
     'RANK ( N, *8, *9 )',
     'f(x)(y)', 
@@ -61,11 +58,13 @@ for my $str (
     'READ( FMT, A, V)',
     'READ(A, V)',
     'time'
-) {
-  if ($CASE==1) {
-			my $ast = parse_expression($str,{},{},'main');
-  } else {
-      my $res = parse_expression_no_context($str);
-  }
+    -> $str
+{
+    if CASE==1 {
+        my $ast = parse_expression($str,%(),%(),'main');
+    } else {        
+         my $res = parse_expression_no_context($str);
+    }   
 }
+
 }

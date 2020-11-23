@@ -3,11 +3,12 @@ use v5.28;
 use Data::Dumper;
 use RefactorF4Acc::Parser::Expressions qw( parse_expression_no_context interpret emit_expr_from_ast 
 _find_consts_in_ast
-_find_vars_in_ast
 _find_args_in_ast
 _traverse_ast_with_action
 @sigils
 );
+# _find_vars_in_ast
+
 $RefactorF4Acc::Parser::Expressions::defaultToArrays=1;
 
 for my $str ('z(j+i,k*km)*p(i+1,j+jm)','i+1','v( i + 1 )','z','z(j,k)','j+k','i-im') {
@@ -97,7 +98,7 @@ for my $str ('*8','RANK ( N, *8, *9 )','f(x)(y)', 'a**b**3', 'B .and. .not. A .o
     'time',
     '2*v+1'
 ) {
-	for my $tt (1,2) {
+	for my $tt (1) {
 		if ($tt==1) {
     #    say "\nTEST: $str";
     print "$str\t";
@@ -118,8 +119,8 @@ for my $str ('*8','RANK ( N, *8, *9 )','f(x)(y)', 'a**b**3', 'B .and. .not. A .o
 #                my $consts = _find_consts_in_ast($ast,{});
 #                say Dumper($consts);
                 say 'VARS: ';
-                my $vars = _find_vars_in_ast($ast,{});
-                say Dumper(each %{$vars});				
+                # my $vars = _find_vars_in_ast($ast,{});
+                # say Dumper(each %{$vars});				
 #                say 'ARGS: ';
 #                my $args = _find_args_in_ast($ast,{});
 #                say Dumper($args);              

@@ -1,5 +1,8 @@
 use v6;
 
+constant VER=@*ARGS[0].Num;
+constant NITERS = 10_000_000;
+
 my $str = lc('READ( 1, 2, ERR=8, END=9, IOSTAT=N ) X');
 my %info =();   
 my SetHash $infoset .= new;
@@ -35,10 +38,24 @@ my $count=0;
 #raku, SetHash
 # about 6 mins
 
-for 1..10_000_000 -> $i {
+    if VER==1 {
+for 1..NITERS -> $i {
        if ($str~~/read/) { # super slow
-# if (%info<ReadCall>:exists) {
         $count+=$i;
-   }
+       }
+}
+    } elsif VER==2 {
+for 1..NITERS -> $i {
+        if (%info<ReadCall>:exists) {
+            $count+=$i;
+        }
+}
+   
+} else {
+for 1..NITERS -> $i {
+        # if (%info<ReadCall>:exists) {
+            $count+=$i;
+        # }
+}    
 }
 say $count;

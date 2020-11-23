@@ -12,10 +12,9 @@ my @chrs =  $str.comb;#split('',$str); # No advantage in making this a List or A
 #exit;
 # The regex version is 1.45s, the other version 3.25s (mean over 10 runs)
 
-for 1 .. NITERS -> $ct {
-# my \chrs_=chrs__.cache;
-    my @words=();
     if (VER==0) {
+for 1 .. NITERS -> $ct {
+    my @words=();
         my $word='';
         map(-> \c { 
             if (c ne ' ') {
@@ -26,10 +25,12 @@ for 1 .. NITERS -> $ct {
             }
         }, @chrs);
         push @words, $word;
-        # say @words;
+}        # say @words;
         # exit;
-} elsif VER==10 {     # neat but way too slow!    
-        my \res = reduce(
+} elsif VER==4 {     # neat but way too slow!    
+ for 1 .. NITERS -> $ct {
+    # my @words=();
+       my \res = reduce(
         -> \acc, \c { 
             if (c ne ' ') {
                 acc[0],acc[1] ~ c;
@@ -38,10 +39,12 @@ for 1 .. NITERS -> $ct {
             }
         }, ((),''), |@chrs);
         my @words = |res[0],res[1];
-        # say @words;
+}        # say @words;
         # exit;        
-} elsif VER==11 {     
-        my $str='This means we need a stack per type of operation and run until the end of the expression';
+} elsif VER==1 {     
+ for 1 .. NITERS -> $ct {
+    my @words=();
+       my $str='This means we need a stack per type of operation and run until the end of the expression';
         # my $word='';
         # while $str.Bool {   
         while my $idx=$str.index( ' ' ) {
@@ -59,9 +62,24 @@ for 1 .. NITERS -> $ct {
                 # $word='';                
         # }
         # say @words;
-        # exit;         
-} elsif VER==1 {  
-        my @chrs_ = @chrs;
+}        # exit;       
+} elsif VER==8 {     
+ for 1 .. NITERS -> $ct {
+    my @words=();
+       my $str='This means we need a stack per type of operation and run until the end of the expression';
+        my $sidx=0;
+        while my $idx=$str.index( ' ' , $sidx) {
+            # say $idx;   
+            push @words, $str.substr($sidx,$idx-$sidx);
+            $sidx=$idx+1;
+        }
+        push @words, $str.substr($sidx);
+        # say @words;exit;    
+}        # exit;    
+} elsif VER==2 {  
+ for 1 .. NITERS -> $ct {
+    my @words=();
+       my @chrs_ = @chrs;
         my $word='';      
         while @chrs_ {
             my $chr=  shift @chrs_;
@@ -74,9 +92,11 @@ for 1 .. NITERS -> $ct {
         }
         push @words, $word;
         # say @words;
-        # exit;        
-} elsif VER==2 {
-        my $str='This means we need a stack per type of operation and run until the end of the expression';
+}        # exit;        
+} elsif VER==3 {
+ for 1 .. NITERS -> $ct {
+    my @words=();
+       my $str='This means we need a stack per type of operation and run until the end of the expression';
 
         while $str.Bool {
              $str ~~ s/^$<w> = [ \w+ ]//;
@@ -87,21 +107,26 @@ for 1 .. NITERS -> $ct {
                 $str ~~s/^\s+//;
             } 
         }
-        # say @words;
-        # exit;      
-} elsif VER==3 {
-        my $word='';
-
-} elsif VER==4 {
-        my @chrs_ =  @chrs;
-        my $word='';      
-
+}        # exit;      
 } elsif VER==5 {
-            my $str='This means we need a stack per type of operation and run until the end of the expression';
+ for 1 .. NITERS -> $ct {
+    my @words=();
+       my $word='';
+ }
+} elsif VER==6 {
+  for 1 .. NITERS -> $ct {
+    my @words=();
+      my @chrs_ =  @chrs;
+        my $word='';      
+  }
+} elsif VER==7 {
+   for 1 .. NITERS -> $ct {
+    my @words=();
+         my $str='This means we need a stack per type of operation and run until the end of the expression';
     
 #    say @words.raku if $ct==2;  
-    # exit;
+}    # exit;
 }
 
-}
+
 
