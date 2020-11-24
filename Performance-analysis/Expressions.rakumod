@@ -55,6 +55,27 @@ sub parse_expression ($exp, $info, $stref, $f) is export  {
 	    return $ast;
 	
 } # END of parse_expression()
+
+sub parse_expression_regex ($exp, $info, $stref, $f) is export  {
+	
+		my ($ast, $rest, $err, $has_funcs)  = parse_expression_no_context_regex($exp);
+		if $DBG and $err or $rest ne '' {
+            die "PARSE ERROR in <$exp>, REST: $rest";
+		}
+        my ($ast2, $grouped_messages) = $has_funcs ?? _replace_function_calls_in_ast($stref,$f,$info,$ast, $exp, {}) !! ($ast,{});
+	    if ($W) {
+	        for   sort keys $grouped_messages<W> -> $warning_type {
+	            for  sort keys $grouped_messages<W>{$warning_type} -> $k {
+	                my $line = $grouped_messages<W>{$warning_type}{$k};
+	                say $line;
+	            }
+	        }
+	    }		
+	    return $ast;
+	
+} # END of parse_expression_regex()
+
+
 # ==============================================================================
 # States
 # 1            2           3                4        5           0           6             7                     8
@@ -91,33 +112,42 @@ sub parse_expression_no_context($str_)  is export  {
         $str .= trim-leading;
         # Handle prefix -,+,.not.
         given $str {
-            when  s/^\-// {
+            when .starts-with('-') {
+                $str.=substr(1);
                 $state=4;
             }    
-            when s/^\+// {
+            when $str.starts-with('+') {
+                $str.=substr(1);
                 $state=3;
             }    
-            when s/\.not\.// {
+            when .starts-with('.not.') {
+                $str.=substr(5);
                 $state=21;
             }    
         }
+
         # Remove whitespace after prefix
         if ($state ) {
-            $str ~~ s/^\s*//;
+            $str .= trim-leading;
         }
 
         given $str {
             # First check for a variable, then trim and then see if there is a paren.
-            when 'a' le .substr(0,1).lc le 'z' {
+            when 'a' le (my $var = .substr(0,1)).lc le 'z' {
                 #variable
-                my $var= .substr(0,1);
-                .=substr(1);
-                my $c = .substr(0,1);
+                # my $var= .substr(0,1);
+                # .=substr(1);
+                my $idx=1;
+                my $c = .substr($idx,1);                
                 while 'a' le $c.lc le 'z' or $c eq '_' or '0' le $c le '9' {
                     $var~=$c;
-                    $_ .=substr(1);
-                    $c = .substr(0,1);
+
+                    # $_ .=substr(1);
+                    # $c = .substr(0,1);
+                    $c = .substr(++$idx,1);
                 }
+                # say $var,';',$str,';',$idx;
+                .=substr($idx);
                 .=trim-leading;
                 if .starts-with('(') {
                     # array access or function call;
@@ -151,7 +181,6 @@ sub parse_expression_no_context($str_)  is export  {
                     $expr_ast=[2,$var];
                 }
             }
-
             when .starts-with('[') {
                 # constant array constructor expr
                 .=substr(1);
@@ -193,18 +222,21 @@ sub parse_expression_no_context($str_)  is export  {
             # Apparently Fortran allows '$' as a character in a variable name but I think I'll ignore that.
             # I allow _ as starting character because of the placeholders
                     
-            when 'a' le .substr(0,1).lc le 'z' { die 'BOOM! SHOULD NOT COME HERE';
-                #variable
-                my $var= .substr(0,1);
-                .=substr(1);
-                my $c = .substr(0,1);
-                while 'a' le $c.lc le 'z' or $c eq '_' or '0' le $c le '9' {
-                    my $var~=$c;
-                    .=substr(1);
-                    $c = .substr(0,1);
-                }
-                $expr_ast=[2,$var];
-            }
+            # when 'a' le .substr(0,1).lc le 'z' { die 'BOOM! SHOULD NOT COME HERE';
+            #     #variable
+            #     my $var= .substr(0,1);
+            #     .=substr(1);
+            #     my $c = .substr(0,1);
+            #     my $idx=0;
+            #     while 'a' le $c.lc le 'z' or $c eq '_' or '0' le $c le '9' {
+            #         my $var~=$c;
+            #         # .=substr(1);
+            #         # $c = .substr(0,1);
+            #         $c = .substr(++$idx,1);
+            #     }
+            #     $str .= substr($idx);
+            #     $expr_ast=[2,$var];
+            # }
             when .starts-with('__PH') {    
                 # placeholders
                 my $ns = .index('H')+1;
@@ -218,8 +250,7 @@ sub parse_expression_no_context($str_)  is export  {
                 .=substr($nn+6);
                 # $str.=trim-leading;
                 #  Now it is possible that there are several of these in a row!
-                while .starts-with('__PH') {
-                    
+                while .starts-with('__PH') {                    
                     # now find the number
                     my $ns = .index('H')+1;
                     # from there
@@ -234,12 +265,14 @@ sub parse_expression_no_context($str_)  is export  {
                 }        
                 $expr_ast=[33,$phs]; 
             }
-            when  .starts-with('.true.') {            
+            when  .starts-with('.true.') {    
+                .=substr(6);        
                 # boolean constants
                 $expr_ast=[31,'.true.'];
             }
             when  .starts-with('.false.') {
                 # boolean constants
+                .=substr(7);
                 $expr_ast=[31,'.false.'];
             }
             when '0' le .substr(0,1) le '9' or .substr(0,1) eq '.' { # could be a real const, carry on
@@ -248,11 +281,11 @@ sub parse_expression_no_context($str_)  is export  {
                 my $exp='';
                 my $real_const_str='';
 
-                my $h = .substr(0,1);
-                my $mant=$h;
-                $str .=substr(1);
-                my $idx=0;
-                $h = .substr(0,1);
+                my $mant = .substr(0,1);
+                # my $mant=$h;
+                # $str .=substr(1);
+                my $idx=1;
+                my $h = .substr($idx,1);
                 while '0' le $h le '9' or $h eq '.' {
                     $mant ~=$h;
                     $h = .substr(++$idx,1);
@@ -723,7 +756,7 @@ So it looks like I need at least 6 bits, so we'll need <<8 and 0xFF
     }
 } # END of parse_expression_no_context
 
-sub parse_expression_no_context_regex($str_)  is export  { 	
+sub parse_expression_no_context_regex($str_) is export  { 	
     my $str = $str_;
     my $max_lev=11; # levels of precedence
     my $prev_lev=0;
@@ -734,7 +767,6 @@ sub parse_expression_no_context_regex($str_)  is export  {
     my $state=0; # I will use state=8/9/10 as "has prefix .not. - + "
     my $error=0;
     # I will not treat * as a proper prefix
-
 
     my Array $expr_ast=[];
     my Array $arg_expr_ast=[];
@@ -747,49 +779,36 @@ sub parse_expression_no_context_regex($str_)  is export  {
         $str .= trim-leading;
         # Handle prefix -,+,.not.
         given $str {
-            when .starts-with('-') {
-                $str.=substr(1);
+            when  s/^\-// {
                 $state=4;
             }    
-            when $str.starts-with('+') {
-                $str.=substr(1);
+            when s/^\+// {
                 $state=3;
             }    
-            when .starts-with('.not.') {
-                $str.=substr(5);
+            when s/\.not\.// {
                 $state=21;
             }    
         }
+
         # Remove whitespace after prefix
         if ($state ) {
-            $str .= trim-leading;
+            $str ~~ s/^\s*//;
         }
 
         given $str {
+            
             # First check for a variable, then trim and then see if there is a paren.
-            when 'a' le .substr(0,1).lc le 'z' {
-                #variable
-                my $var= .substr(0,1);
-                .=substr(1);
-                my $c = .substr(0,1);
-                while 'a' le $c.lc le 'z' or $c eq '_' or '0' le $c le '9' {
-                    $var~=$c;
-                    $_ .=substr(1);
-                    $c = .substr(0,1);
-                }
-                .=trim-leading;
-                if .starts-with('(') {
-                    # array access or function call;
-                    .=substr(1); # remove the '('
+            when s:i/^$<m> = [<[ a..z ]> \w* ] \s* \( // { 
+                    my $var=$<m>.Str;
+
                     $has_funcs=1;
                     my $arg_expr_ast;
-                    if not .starts-with(')') { # non-empty arg list
+                    if !/^\s*\)/ { # non-empty arg list
                         ($arg_expr_ast,$str, my $err, my $has_funcs2) = parse_expression_no_context_regex($str);
                         # $_=$str2;
                         $has_funcs||=$has_funcs2;
                     } else { # empty arg list                       
-                        $str .= substr(1); # removed ')'
-                        $str .= trim-leading;
+                        $str ~~ s/^\)\s*//;
                         $arg_expr_ast=[];
                     }
                     if ($defaultToArrays) {
@@ -799,21 +818,16 @@ sub parse_expression_no_context_regex($str_)  is export  {
                     }
                     
                     # f(x)(y)
-                    if .starts-with('(') {
+                    if /^\(/ {
                         (my $arg_expr_ast2,$str, my $err2,my $has_funcs2)=parse_expression_no_context_regex($_);
                         # $_=$str2;
                         $expr_ast=[1, $var,[14,$arg_expr_ast,$arg_expr_ast2[1]]];
                         $has_funcs||=$has_funcs2;
                     }
-
-                } else {
-                    $expr_ast=[2,$var];
-                }
             }
 
-            when .starts-with('[') {
+            when s:i/\[// {
                 # constant array constructor expr
-                .=substr(1);
                 ($expr_ast,$str, my $err,my $has_funcs2)=parse_expression_no_context_regex($_);
                 # $_ = $str2;
                 $has_funcs||=$has_funcs2;
@@ -823,13 +837,9 @@ sub parse_expression_no_context_regex($str_)  is export  {
                     return [$expr_ast,$str, $err,0];
                 }
             } 
-            when .starts-with('(') { 
-                .=substr(1);
-                my $str2 = .trim-leading;
-                if $str2.starts-with('/') {
+            when s/^\(\s*\/// { 
                 # constant array constructor expr
-                    $str2 .=substr(1);
-                    ($expr_ast,$str, my $err,my $has_funcs2)=parse_expression_no_context_regex($str2);
+                    ($expr_ast,$str, my $err,my $has_funcs2)=parse_expression_no_context_regex($str);
                     # $_ = $str3;
                     $has_funcs||=$has_funcs2;
                     #$expr_ast=['(/',$expr_ast];
@@ -837,141 +847,67 @@ sub parse_expression_no_context_regex($str_)  is export  {
                     if $err {
                         return [$expr_ast,$str, $err,0];
                     }
-                } else {
-                    # $_.=substr(1);                            
+            }
+            when s/^\(// {
                     # paren expr, I use '{' as it appears not to be used. Would make send to call it '('
-                    ($expr_ast,$str, my $err,my $has_funcs2)=parse_expression_no_context_regex($_);
+                    ($expr_ast,$str, my $err,my $has_funcs2)=parse_expression_no_context_regex($str);
                     # $_=$str2;
                     $has_funcs||=$has_funcs2;
                     $expr_ast=[0,$expr_ast];
                     if $err {#say "ERR 2";
                         return [$expr_ast,$str, $err,0];
-                    }
-                }
+                    }            
             }
+
             # Apparently Fortran allows '$' as a character in a variable name but I think I'll ignore that.
             # I allow _ as starting character because of the placeholders
-                    
-            when 'a' le .substr(0,1).lc le 'z' { die 'BOOM! SHOULD NOT COME HERE';
-                #variable
-                my $var= .substr(0,1);
-                .=substr(1);
-                my $c = .substr(0,1);
-                while 'a' le $c.lc le 'z' or $c eq '_' or '0' le $c le '9' {
-                    my $var~=$c;
-                    .=substr(1);
-                    $c = .substr(0,1);
-                }
+            # when s/^a1_i// { die $str,$_ }
+            when  s:i/^$<m>=[<[a..z]>\w*]\s*// { 
+                my $var=$<m>.Str;
                 $expr_ast=[2,$var];
+            }       
+            when s/^$<m> = [[__PH\d+__]+]// {
+            #
+                $expr_ast=[33,$<m>.Str];
+            #$expr_ast=['$',$1];
+            # Now it is possible that there are several of these in a row!
+            # say @expr_ast;exit;
             }
-            when .starts-with('__PH') {    
-                # placeholders
-                my $ns = .index('H')+1;
-                # from there
-                my $ne = .index('__',$ns);
-                # get the substr, we know it is a number
-                my $nn = $ne-$ns;
-                my $n = .substr($ns,$nn);
 
-                my $phs = '__PH'~$n~'__'; 
-                .=substr($nn+6);
-                # $str.=trim-leading;
-                #  Now it is possible that there are several of these in a row!
-                while .starts-with('__PH') {
-                    
-                    # now find the number
-                    my $ns = .index('H')+1;
-                    # from there
-                    my $ne = .index('__',$ns);
-                    # get the substr, we know it is a number
-                    my $nn = $ne-$ns;
-                    my $n = .substr($ns,$nn);
-                    $phs ~= '__PH'~$n~'__'; 
-                     .=substr($nn+6);
-                    # $str.trim-leading;
-                    # say $expr_ast;
-                }        
-                $expr_ast=[33,$phs]; 
-            }
-            when  .starts-with('.true.') {            
+            when  s/\.true\.// {            
                 # boolean constants
                 $expr_ast=[31,'.true.'];
             }
-            when  .starts-with('.false.') {
+            when  s/\.true\.// {
                 # boolean constants
                 $expr_ast=[31,'.false.'];
             }
-            when '0' le .substr(0,1) le '9' or .substr(0,1) eq '.' { # could be a real const, carry on
-                my $sep='';
-                my $sgn='';
-                my $exp='';
-                my $real_const_str='';
-
-                my $h = .substr(0,1);
-                my $mant=$h;
-                $str .=substr(1);
-                my $idx=0;
-                $h = .substr(0,1);
-                while '0' le $h le '9' or $h eq '.' {
-                    $mant ~=$h;
-                    $h = .substr(++$idx,1);
-                }
-                $str .= substr($idx);
-
-                if not ($mant.ends-with('.') and .starts-with('eq',:i)) { 
-                    # if $h eq 'e' or $h eq 'd' or $h eq 'q' {
-                    if $h.lc eq 'e' | 'd' | 'q' {
-                        $sep = $h;
-                        my $idx=1;
-                        $h =.substr(1,1);
-                        if $h eq '-' or $h eq '+' {
-                            ++$idx;
-                            $sgn = $h;
-                            $h =.substr($idx,1);
-                        }
-                        while '0' le $h le '9' {
-                            ++$idx;
-                            $exp~=$h;
-                            $h =.substr($idx,1);
-                        }
-                        $str .= substr($idx);
-                    # so we have $mant $sep $sgn $exp
-                        $real_const_str="$mant$sep$sgn$exp";
-                        # reals
-                        $expr_ast=[30,$real_const_str];
-                    } elsif index($mant,'.').Bool {
-                    # means $h is no more part of the number, emit the $mant only
-                        $real_const_str=$mant;
-                        # real
-                        $expr_ast=[30,$real_const_str];
-                    }
-                    else { # No dot and no sep, so an integer
-                        # integer
-                        $expr_ast=[29,$mant];   
-                    }
-                } else { # .eq., backtrack and carry on
-                    $str ="$mant$str";        
-                    proceed;
-                }            
-            }
-            when .starts-with('*') and '0' le (my $h=.substr(1,1)) le '9' {
-                my $addr=$h;
-                my $idx=2;
-                $h = .substr($idx,1);
-                while '0' le $h le '9' {
-                    ++$idx;
-                    $addr~=$h;
-                    $h =.substr($idx,1);
-                }
-                $str .= substr($idx);            
+            when (                    	
+                (
+                    !(rx:i/^\d+\.eq/) and
+                    s:i/^ $<m> = [[\d*\.\d*][[e|d|q][\-|\+]?\d+]?]//        
+                )        	
+                or 
+                s:i/^$<m> = [\d*[e|d|q][\-|\+]?\d+]//
+            ) {
+                my $real_const_str=$<m>.Str;
+                $expr_ast=[30,$real_const_str];
+                # say $real_const_str;
+            }             
+            when s/^\* $<m> = [\d+]// {
+                my $addr=$<m>.Str;
                 # The '*' is for "alternate returns", a bizarre F77 feature.
                 # The integer following the * is a label 
                 $expr_ast=[34,$addr];
             }        
         # TODO see file with old content: spaces in numbers
-
-            when .starts-with('*') {        
-                .=substr(1);        
+            when s/^ $<m> = [\d+]// {            
+                # integers                       
+                # warn 'INTEGER, ALLOW_SPACES_IN_NUMBERS==0';
+                $expr_ast=[29,$<m>.Str];
+                #$expr_ast=$1;#['integer',$1];
+            }
+            when s/^\*// {        
                 # '*' format for write/print
                 $expr_ast=[32,'*'];
             }
@@ -982,10 +918,14 @@ sub parse_expression_no_context_regex($str_)  is export  {
                 $expr_ast=[32,$str_const ];
                 .=substr($cq+1);
             }
+            when s/^\'(.+?)\'//  {
+            $expr_ast=[32, $/.Str];
+            #$expr_ast="'".$1."'";
+            }
             # Here we return with an error value
             # What I could do is say:
             # if the next token is ':' or the pending op is ':' (12)
-            when .starts-with(':') or $op == 12 {
+            when s/\:// or $op == 12 {
                     # Return a blank
                     $expr_ast=[35,'']
             }
@@ -1012,19 +952,12 @@ sub parse_expression_no_context_regex($str_)  is export  {
         }
 
         given $str {
-            when .starts-with(',') { # comma
-                .=substr(1);
+            when s/^\,// { # comma
                 # just set a state here
                 $state=6;
             }
-            when .trans(' ' => '').starts-with( '/)') 
-            or .starts-with( ']')
-            { # closing paren for constant array constructor
-                if .starts-with( '/') {
-                    .=substr(1);
-                    .=trim-leading;
-                }
-                .=substr(1);
+            when s/^\/\s*\)// or s/^\]// {
+             # closing paren for constant array constructor
                 # Again this is like falling off the end of the string
                 # if  @{$arg_expr_ast} is not empty, then this must become the ast to return
                 # after appending the final value
@@ -1038,9 +971,8 @@ sub parse_expression_no_context_regex($str_)  is export  {
                     last;
                 }
             }        
-            when .starts-with(')') { # closing paren
+            when s/^\)// { # closing paren
             
-                .=substr(1);
                 # say 'closing paren '~ $_;
                 # Again this is like falling off the end of the string``    `
                 # if  @{$arg_expr_ast} is not empty, then this must become the ast to return
@@ -1056,7 +988,7 @@ sub parse_expression_no_context_regex($str_)  is export  {
                 }
             } 
             default { 
-            # warn "HERE OPS $str";
+            # warn "HERE OPS <$str>";
             # Operators
 =begin pod
 Operator precedence
@@ -1087,175 +1019,106 @@ So it looks like I need at least 6 bits, so we'll need <<8 and 0xFF
 
 
             $prev_lev=$lev;
-            my $str2=$str;
-            given $str2 {
-                when .starts-with('+')  {
-                    $str2 .= substr(1);
-                    $lev=4;
-                    #$op='+';
-                    $op=3;
-                }
-                when .starts-with('-') {
-                    $str2 .= substr(1);
-                    $lev=4;
-                    #$op='-';
-                    $op=4;
-                }
-                when .starts-with('**')  {
-                    $str2 .= substr(2);
-                    # We store this incorrectly left-assoc, the emitter can fix it.
-                    $lev=2;
-                    #$op='**';
-                    $op=8;
-                } 
-                when .starts-with('*')  {
-
-                    $str2 .= substr(1);                    
-                    # say 'MULT: <',$str2, '>';
-                    $lev=3;
-                    #$op='*';
-                    $op=5;
-                }
-                when .starts-with('//')  {
-                    $str2 .= substr(2);
-                    $lev=5;
-                    #$op='//';
-                    $op=13;
-                } 
-                when .starts-with(':') {
-                    $str2 .= substr(1);
-                    $lev=5;
-                    #$op=':';
-                    $op=12;
-                } 
-                when .starts-with('/') {
-                    $str2 .= substr(1);
-                    $lev=3;
-                    #$op='/';
-                    $op=6;
-                } 
-                when .starts-with( '>=' ) {
-                    $str2 .= substr(2);
-                    $lev=6;
-                    #$op='>=';
-                    $op=20;
-                }
-                when .starts-with( '<=' ) {
-                    $str2 .= substr(2);
-                    $lev=6;
-                    #$op='<=';
-                    $op=19;
-                }                
-                when .starts-with('<') {
-                    $str2 .= substr(1);
-                    $lev=6;
-                    #$op='<';
-                    $op=17;
-                } 
-                when .starts-with('>') {
-                    $str2 .= substr(1);
-                    $lev=6;
-                    #$op='>';
-                    $op=18;
-                } 
-                when .starts-with('==') {
-                    $str2 .= substr(2);
-                    $lev=7;
-                    #$op='==';
-                    $op=15;
-                } 
-                when .starts-with('!=') {
-                    $str2 .= substr(2);
-                    $lev=7;
-                    #$op='/=';
-                    $op=16;
-                } 
-                when .starts-with('=') {
-                    $str2 .= substr(1);
-                    $lev=5;
-                    #$op='=';
-                    $op=9;
-                } 
-                when .starts-with('.') and  .index( ' ' ) and (.index( ' ' ) < (my $eidx = .index('.',2 ))) {
-                    
-                    # Find the keyword with spaces
-                    my $match = .substr(0, $eidx+1);
-                    # remove the spaces
-                    $match .= trans( ' ' => '' );
-                    # update the string
-                    $str2 = $match ~ .substr( $eidx+1);
-                    proceed;
-                }
-
-                when .starts-with( '.ge.') {
-                    # say 'H!';
-                    $str2 .= substr(4);
-                    $lev=6;
-                    #$op='>=';
-                    $op=20;
-                }
-                when .starts-with( '.lt.') {
-                    $str2 .= substr(4);
-                    $lev=6;
-                    #$op='<';
-                    $op=17;
-                } 
-                when .starts-with( '.gt.') {
-                    $str2 .= substr(4);
-                    $lev=6;
-                    #$op='>';
-                    $op=18;
-                } 
-                when .starts-with( '.eq.') {
-                    $str2 .= substr(4);
-                    $lev=7;
-                    #$op='==';
-                    $op=15;
-                } 
-                when .starts-with( '.ne.') {
-                    $str2 .= substr(4);
-                    $lev=7;
-                    #$op='/=';
-                    $op=16;
-                } 
-                when .starts-with( '.and.') {
-                    $str2 .= substr(5);
-                    $lev=9;
-                    #$op='.and.';
-                    $op=22;
-                } 
-                when .starts-with( '.or.') {
-                    $str2 .= substr(4);
-                    $lev=10;
-                    #$op='.or.';
-                    $op=23;
-                } 
-                when .starts-with( '.xor.') {
-                    $str2 .= substr(5);
-                    $lev=11;
-                    #$op='.xor.';
-                    $op=24;
-                } 
-                when .starts-with( '.eqv.') {
-                    $str2 .= substr(5);
-                    $lev=11;
-                    #$op='.eqv.';
-                    $op=25;
-                } 
-                when .starts-with( '.neqv.') {
-                    $str2 .= substr(6);
-                    $lev=11;
-                    #$op='.neqv.';
-                    $op=26;
-                } 
-            
-                default {
-                    #say "LEAVE WHILE: ERROR, str $str does not match any op";
+            if ($str~~s/^\+//) {
+                $lev=4;
+                #$op='+';
+                $op=3;
+            }
+            elsif ($str~~s/^\-//) {
+                $lev=4;
+                #$op='-';
+                $op=4;
+            }
+            elsif ($str~~s/^\*\*//) {
+                # We store this incorrectly left-assoc, the emitter can fix it.
+                $lev=2;
+                #$op='**';
+                $op=8;
+            } 
+            elsif ($str~~s/^\*//) {
+                $lev=3;
+                #$op='*';
+                $op=5;
+            }
+            elsif ($str~~s/^ \/\/ //) {
+                $lev=5;
+                #$op='//';
+                $op=13;
+            } 
+            elsif ($str~~s/^\://) {
+                $lev=5;
+                #$op=':';
+                $op=12;
+            } 
+            elsif ($str~~s/^ \/ //) {
+                #  die 'DIV';
+                $lev=3;
+                #$op='/';
+                $op=6;
+            } 
+            elsif $str~~s/^[\>\= | \.\s*ge\s*\.] // {
+                $lev=6;
+                #$op='>=';
+                $op=20;
+            } 
+            elsif $str~~s/^[ \<\= | \.\s*le\s*\.] // {
+                $lev=6;
+                #$op='<=';
+                $op=19;
+            } 
+            elsif ($str~~s/^[\< | \.\s*lt\s*\.]//) {
+                $lev=6;
+                #$op='<';
+                $op=17;
+            } 
+            elsif ($str~~s/^[\> | \.\s*gt\s*\.]//) {
+                $lev=6;
+                #$op='>';
+                $op=18;
+            } 
+            elsif ($str~~s/^[\=\= | \.\s*eq\s*\.]//) {
+                $lev=7;
+                #$op='==';
+                $op=15;
+            } 
+            elsif ($str~~s/^\!\=// || $str~~s/^\.ne\.// || $str~~s/^\.\s*ne\s*\.//) {
+                $lev=7;
+                #$op='/=';
+                $op=16;
+            } 
+            elsif ($str~~s/^\.and.// || $str~~s/^\.\s*and\s*\.//) {
+                $lev=9;
+                #$op='.and.';
+                $op=22;
+            } 
+            elsif ($str~~s/^\.or.// || $str~~s/^\.\s*or\s*\.//) {
+                $lev=10;
+                #$op='.or.';
+                $op=23;
+            } 
+            elsif $str~~s/^\.\s*xor\s*\.// {
+                $lev=11;
+                #$op='.xor.';
+                $op=24;
+            } 
+            elsif $str~~s/^\.\s*eqv\s*\.// {
+                $lev=11;
+                #$op='.eqv.';
+                $op=25;
+            } 
+            elsif $str~~s/^\.\s*neqv\s*\.// {
+                $lev=11;
+                #$op='.neqv.';
+                $op=26;
+            } 
+            elsif ($str~~s/^\=//) {
+                $lev=5;
+                #$op='=';
+                $op=9;
+            } else {
                     $error=1;
                     last;
-                }
-            } # nested given
-            $str=$str2;
+            }
             # $str = $_;
             # say 'OUT  wit state = 5; ',$str,';',$_,';',$str2;
             $state=5;        

@@ -11,7 +11,7 @@ my $ext = $test_case;
 $ext =~s/^.+\.//;
 
 my %ext2lang = (
-    raku => 'raku',
+    raku => 'raku -I.',
     pl => 'perl',
     py => 'python3'
 );

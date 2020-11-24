@@ -61,9 +61,9 @@ for
     -> $str
 {
     if CASE==1 {
-        my $ast = parse_expression($str,%(),%(),'main');
+        my $ast = parse_expression_regex($str,%(),%(),'main');
     } else {        
-         my $res = parse_expression_no_context($str);
+         my $res = parse_expression_no_context_regex($str);
     }   
 }
 

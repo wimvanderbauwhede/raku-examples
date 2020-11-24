@@ -14,11 +14,11 @@ for
     'z',
     'z(j,k)',
     'j+k',
-    'i-i_min_max' 
+    'i-im' 
     -> $str_  {
     print "$str_\t"; 
     my $str=$str_;
-    my ( $ast, $rest, $err) = parse_expression_no_context($str);#*p(i+1,j+jm)');
+    my ( $ast, $rest, $err) = parse_expression_no_context_regex($str);#*p(i+1,j+jm)');
     if $err {
         say 'ERROR' 
     } else {
@@ -46,7 +46,7 @@ for
     -> $str {
     print "$str\t";
     #say "\nTEST: $str";
-    (my $ast, my $rest, my $err) = parse_expression_no_context($str);
+    (my $ast, my $rest, my $err) = parse_expression_no_context_regex($str);
     if ($err) {say 'ERROR' } else {
         # say "AST: " ~ $ast.raku;
         my $estr=emit_expr_from_ast($ast);
@@ -72,7 +72,7 @@ for
     print "$str\t";
 
     #    say "\nTEST: $str";
-    (my $ast, my $rest, my $err) = parse_expression_no_context($str);
+    (my $ast, my $rest, my $err) = parse_expression_no_context_regex($str);
     if ($err) {say 'ERROR' } else {
         #say "AST: ".Dumper($ast);
         my $estr=emit_expr_from_ast($ast);
@@ -143,7 +143,7 @@ for
             #    say "\nTEST: $str";
             print "$str\t";
             
-            (my $ast, my $rest, my $err) = parse_expression_no_context($str);
+            (my $ast, my $rest, my $err) = parse_expression_no_context_regex($str);
             # say "AST: " ~ $ast.raku;
             if ($err or $rest ne '') {say 'ERROR: <'~$rest~'>' } else {
                 my $estr=emit_expr_from_ast($ast);
@@ -153,7 +153,7 @@ for
                 say $sstr eq $estr ?? 'OK' !! 'NOK: '~ $sstr~'<>'~$estr;
             }
 		} else {
-			(my $ast, my $rest, my $err) = parse_expression_no_context($str);#*p(i+1,j+jm)');
+			(my $ast, my $rest, my $err) = parse_expression_no_context_regex($str);#*p(i+1,j+jm)');
         #say "AST: ".Dumper($ast);
 			if ($err or $rest ne '') {
                 say 'ERROR: <' ~ $rest ~ '>' ;
