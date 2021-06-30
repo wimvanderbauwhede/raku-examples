@@ -28,7 +28,7 @@ role Numbers {
         '百' | '千' | '万' | '億' | 
         '兆' | '京' | '垓' | '𥝱' | '穣' | '溝' | '澗' | '正' | '載' | '極' 
         }
-    token zero { '○' | '零 ' | 'ゼロ' | 'マル'  }
+    token zero { '○' | '零' | 'ゼロ' | 'マル'  }
     token minus {'マイナス'}
     token plus {'プラス'}
     token integer { (<number_kanji> | <zero>)+ }
@@ -64,7 +64,8 @@ role Identifiers does Numbers does Characters {
         'いだ'|
         'いで'
     }
-    token verb {<kanji> <hiragana>+? <verb_ending> }
+    token noun { <kanji>+ 'さ'? }
+    token verb { <kanji> <hiragana>+? <verb_ending> }
     token identifier { <variable> | <verb> }
 
 }
@@ -141,9 +142,9 @@ does Auxiliaries does Particles
 
     token TOP { <expression> }
     # token expression {  <number> | <variable>   }
-#     token verb_operator_expression { <atomic_expression> <ni>　<atomic_expression> <wo> <operator_verb> }
-#     token noun_operator_expression { <atomic_expression> <to>　<atomic_expression> <no> <operator_noun> }
-#     token operator_expression { <noun_operator_expression> | <verb_operator_expression> }
+    token verb_operator_expression { <atomic_expression> <ni>　<atomic_expression> <wo> <operator_verb> }
+    token noun_operator_expression { <atomic_expression> <to_>　<atomic_expression> <no> <operator_noun> }
+    token operator_expression { <noun_operator_expression> | <verb_operator_expression> }
     
     token atomic_expression {  <number> | <variable>   }
     token list_expression { <atomic_expression> [ <list_operator> <atomic_expression> ]* }
@@ -156,14 +157,14 @@ does Auxiliaries does Particles
     
     token lambda { <aru> <variable_list> <de> <expression> }
     # token lambda_application { <expression> 'を'　 [ <shite_kudasai> | <te_kudasai> | <sura> ]? }
-    token apply { <non_apply_expression> <wo>　[ <variable> | <verb> | <lambda> ] [<shite_kudasai>|<sura>]? }
+    token apply { <non_apply_expression> [ <wo> | <no> ]　[ <variable> | <noun> | <verb> | <lambda> ] [<shite_kudasai>|<sura>]? }
     token non_apply_expression {
-        <lambda>    
+          <lambda>    
+        | <comparison_expression>
         | <operator_expression> 
         | <list_expression>
-        | <cons_list_expression>
-        | 
-        <atomic_expression> 
+        | <cons_list_expression>        
+        | <atomic_expression> 
     }
 
     token expression {
@@ -174,8 +175,29 @@ does Auxiliaries does Particles
         <identifier> [<comp> <identifier>]+
     }
     token range_expression {
-        <atomic_expression> '〜' <atomic_expression>
+        <atomic_expression> <nyoro> <atomic_expression>
     }
+    token nyoro {
+        '〜'
+    }
+    token comparison_expression {
+        <atomic_expression> <ga> <atomic_expression> 
+        [ <ni> <hitoshii> | <yori> [ <sukunai> | <ooi> ]  ]        
+    }
+
+    token hitoshii {
+        '等しい'
+    }
+    token yori {
+        'より'
+    }
+    token ooi {
+        '多い'
+    }    
+    token sukunai {
+        '少ない'
+    }
+    
 }
 
 
@@ -247,7 +269,7 @@ grammar IfThen is Let {
 #     token fold_expression {
 #         [ <variable> | <list_expression> | <range_expression> ] 
 #         <nominnaga>
-#         [ <operator_noun> | <identifier> | <verb> <no> ] <wo> <expression> <to> <tatamu> 
+#         [ <operator_noun> | <identifier> | <verb> <no> ] <wo> <expression> <to_> <tatamu> 
 #     } 
 #     token nominnaga { 'の皆が' }
 #     token tatamu {
@@ -258,12 +280,16 @@ grammar IfThen is Let {
 #     }
 # }
 
-grammar Function is Expression does Auxiliaries does Punctuation { 
+grammar Function is Let does Auxiliaries does Punctuation { 
     # is Let {
-    # token function {
-    #     <verb> <toha>
-    #     <variable_list> <de> [<let_expression> | <expression>]　<function_end>
-    # }
+    token TOP { <function> }
+    token function {
+        [ <verb> | <noun> ] <.toha>
+        <variable_list> <.de>　<.ws>? [<let_expression> | <expression>]　<.function_end>
+    }
+    token toha {
+        'とは'
+    }
 
     token nokoto {
         'のこと'
@@ -276,9 +302,9 @@ grammar Function is Expression does Auxiliaries does Punctuation {
 grammar Haku is Function {
 
     token TOP {
-        # <function>*? | 
+        <function>*? | 
         <hon> 
-        # | <function>*?
+        | <function>*?
     }
 
     token hon { 
@@ -308,10 +334,23 @@ grammar Haku is Function {
 # エクスとワイの積をエッフする。");#
 # say $let_moshi;
 
-my $haku = Haku.parse("本とは
-四十ニを見せる
-のことです。",:rule('hon'));#");#四十ニ"); # 
-say $haku;
+# my $haku = Haku.parse("本とは
+#     四十ニを見せる
+#     のことです。");#");#四十ニ"); # 
+# say $haku;
+
+my $f = Function.parse("加えるとはア達とサでア達が零に等しいのことです。"); #の長さ does not work as currently restricted to atomic expressions
+# に等しい
+# my $f = Expression.parse("ア達がサに等しい");
+say $f;
+        # 場合は
+        # サで、
+        # そうでない場合は
+        #     もし
+        #         ア・アア達はア達だったら、
+        #         アア達とサ足すアを加える
+
+
 # をエッフする。
 
 # my $bind_tara = Let.parse("エッフがアでアにアを掛けたら。",:rule('bind_tara'));
