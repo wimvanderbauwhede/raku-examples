@@ -9,13 +9,28 @@ I call it 'haku', so it can be a pun on Haskell + Raku, or it can be the Haku fr
 # variables must start with katakana then katakana, number kanji and 達 
 
 role Characters {
+    token reserved_kanji {
+        '開' | '閉' | '長' | '頭' | '尻' | '尾' | '或' |
+        '和' | '差' | '積' | '除' |
+        '足' | '引' | '掛' | '割' |
+        '後' | '為' | '等' | '若' |
+        '本' | '見' | '合' | '割' | '書' | '読'
+    }
+
     token kanji {  
-        <:Block('CJK Unified Ideographs')>
+        <:Block('CJK Unified Ideographs') - reserved_kanji >
         }    
+
     token katakana { 
-        <:Block('Katakana')>
+        <:Block('Katakana')> #  - [ ヲワカ ] >
         # <[ア..ヲ]> 
         }
+
+    # I might allow A-Z as well for identifiers
+    token romaji {
+        <[A..Z]>
+    }
+
     token hiragana {
         <:Block('Hiragana')>
         # <[あ..を]>
@@ -39,36 +54,6 @@ role Numbers {
     }
 }
 
-role Identifiers does Numbers does Characters {
-    #token katakana { [all katakana chars or better a unicode range] }
-    
-    #regex katakana { [\c[KATAKANA LETTER SMALL A]..\c[KATAKANA DIGRAPH KOTO] }
-
-
-    #token number_kanji { '一'|'ニ'|'三'|'四'|'五'|'六'|'七'|'八'|'九'|'十'|'百'|'千'|'万'|'億' }
-    token tachi { '達' }
-    token variable { <katakana> [ <katakana>  | <number_kanji> ]* <tachi>? }
-
-    token verb_ending {
-        'る'|
-        'す'|
-        'む'|
-        'く'|
-        'ぐ'|
-        'つ'|
-        'ぬ'|
-        'た'|
-        'て'|
-        'んだ'|
-        'んで'|
-        'いだ'|
-        'いで'
-    }
-    token noun { <kanji>+ 'さ'? }
-    token verb { <kanji> <hiragana>+? <verb_ending> }
-    token identifier { <variable> | <verb> }
-
-}
 
 # I think I will use the full stop and semicolon as equivalent for newline.
 role Punctuation {
@@ -99,6 +84,33 @@ role Particles {
 
 }
 
+role Nouns {
+    token sa { 'さ' }
+    token noun { <kanji>+ <sa>? }
+}
+
+role Verbs {
+    token verb_ending {
+        'る'| 'す'| 'む'| 'く'| 'ぐ'| 'つ'| 'ぬ'|
+        'た'| 'いだ'| 'んだ'|
+        'て'| 'いで' | 'んで'
+    }
+    token noun { <kanji>+ <sa>? }
+    token verb { <kanji> <hiragana>+? <verb_ending> }
+
+}
+
+role Identifiers does Numbers does Characters does Verbs does Nouns {
+    
+    token tachi { '達' }
+    
+    token variable { <katakana> [ <katakana>  | <number_kanji> ]* <tachi>? }
+
+    token identifier { <variable> | <verb> | <noun> }
+
+}
+
+
 role Auxiliaries {
     token kudasai { ['下' | 'くだ' ] 'さい' }
     token masu { 'ます' }
@@ -122,68 +134,32 @@ role Auxiliaries {
 # difference : 差 さ
 # number times <x>: <x> <number> 倍 ばい
 
-grammar Operators does Characters 
-# does Particles 
-does Punctuation 
+role Operators does Characters does Punctuation 
 {
     token operator_noun { '和' | '差' | '積' | '除' }
     token operator_verb_kanji { '足' | '引' | '掛' | '割' }
     token operator_verb { <operator_verb_kanji> <hiragana>+? }    
     token list_operator { <to_> | <comma>}
-    token comp { '後' }
+    token comp { '後' } # g . f
     token aru { '或' } # the \ operator
 }
 
-# # Very quickly we'll get into the rabbit hole of operator precedence
-grammar Expression is Operators 
-does Identifiers does Numbers 
-does Auxiliaries does Particles 
+
+role Keywords 
+does Operators
+does Particles
+does Auxiliaries
+does Verbs 
+does Nouns
+# I might split these out further
 {
 
-    token TOP { <expression> }
-    # token expression {  <number> | <variable>   }
-    token verb_operator_expression { <atomic_expression> <ni>　<atomic_expression> <wo> <operator_verb> }
-    token noun_operator_expression { <atomic_expression> <to_>　<atomic_expression> <no> <operator_noun> }
-    token operator_expression { <noun_operator_expression> | <verb_operator_expression> }
-    
-    token atomic_expression {  <number> | <variable>   }
-    token list_expression { <atomic_expression> [ <list_operator> <atomic_expression> ]* }
-    token cons_list_expression { <variable> [ <cons> <variable> ]+ }
-    token cons { <interpunct> | <colon> }
-    token variable_list { <variable> [ <list_operator> <variable> ]* }
-    # I need to distinguish between verb expressions and noun expressions
-    # suppose I have x de x to x no seki , then it is shite (kudasai)
-    # suppose I have x de x ni x wo kakeru , then it should really be x de x ni x wo kakete (kudasai)
-    
-    token lambda { <aru> <variable_list> <de> <expression> }
-    # token lambda_application { <expression> 'を'　 [ <shite_kudasai> | <te_kudasai> | <sura> ]? }
-    token apply { <non_apply_expression> [ <wo> | <no> ]　[ <variable> | <noun> | <verb> | <lambda> ] [<shite_kudasai>|<sura>]? }
-    token non_apply_expression {
-          <lambda>    
-        | <comparison_expression>
-        | <operator_expression> 
-        | <list_expression>
-        | <cons_list_expression>        
-        | <atomic_expression> 
-    }
-
-    token expression {
-         <apply> | 
-         <non_apply_expression> 
-    }
-    token comp_expression {
-        <identifier> [<comp> <identifier>]+
-    }
-    token range_expression {
-        <atomic_expression> <nyoro> <atomic_expression>
-    }
+    # For Ranges
     token nyoro {
         '〜'
     }
-    token comparison_expression {
-        <atomic_expression> <ga> <atomic_expression> 
-        [ <ni> <hitoshii> | <yori> [ <sukunai> | <ooi> ]  ]        
-    }
+
+    # For Comparisons 
 
     token hitoshii {
         '等しい'
@@ -197,18 +173,11 @@ does Auxiliaries does Particles
     token sukunai {
         '少ない'
     }
-    
-}
 
+    # For Let
 
-
-grammar Let is Expression does Punctuation  {
-    token TOP { <let_expression> }
-    token bind { <variable> <ha> <expression> <desu>? <delim> }
-    token bind_tara { <variable> <ga> <expression> <moshi_ra> <delim> }
-    
     token moshi { 
-        ['もし' | '若し'] <mo>?
+        [ 'もし' | '若し' ] <mo>?　<ws>?
     }
     token nara {
         'なら'
@@ -220,9 +189,180 @@ grammar Let is Expression does Punctuation  {
     token dattara {
         'だったら'
     }
-    token moshi_ra { <dattara> |　<tara> | <nara> }
+    token moshi_nanira { <dattara> |　<tara> | <nara> }
     
-    token kuromaru { '●' }
+    token kuromaru { '●' }    
+
+    # For IfThenElse
+
+    token kedo { 'けど' | 'けれど' <mo>? }
+    token baaiha { '場合は' }
+    token soudenai { 'そうでない' }
+
+    # For Maps and Folds
+
+    token nokaku { 'の各' }
+    token nominnaga { 'の皆が' }
+    token shazou { '写像' <sura> }     
+    token tatamu {
+        '畳' <mu_endings>
+    }
+    # For Function
+
+    token toha {
+        'とは'
+    }
+
+    token koto {
+        'こと'
+    }
+
+    # For Haku
+
+    token hontoha { '本とは' <.ws>? }
+
+    # Built-in verbs
+
+    token mu_endings {
+        'む' | 'んで'  <kudasai>? | 'み' <masu>
+    }
+
+    token ru_endings {
+         'る' | 'て' <kudasai>? | 'り' <masu>
+    }
+
+    token ku_endings {
+         'く' | 'いて' <kudasai>? | 'き' <masu>
+    }
+
+    token tsu_endings {
+         'つ' | 'って' <kudasai>? | 'ち' <masu>
+    }
+
+    token miseru {
+        '見せ' 
+    }
+
+    # Built-in nouns
+
+    # List operations; strings are lists.
+    token nagasa { '長さ' }
+
+    token atama { '頭' }
+    token shippo  { '尻尾' }
+    
+    token awaseru { '合わせ' <ru_endings> }
+    token waru { '割' <ru_endings> }
+
+    # File operations
+    token akeru { '開け' <ru_endings> }
+    token shimeru { '閉め' <ru_endings> }
+    token kaku { '書' <ku_endings> }
+    token yomu { '読' <mu_endings> }
+
+
+}
+
+# # Very quickly we'll get into the rabbit hole of operator precedence
+grammar Expression does Identifiers does Keywords does Nouns
+{
+
+    token TOP { <expression> }
+    
+    token verb_operator_expression { <atomic_expression> <ni>　<atomic_expression> <wo> <operator_verb> }
+    token verb_operator_expression_infix { <atomic_expression> <operator_verb> <atomic_expression> }
+    token noun_operator_expression { <atomic_expression> <to_>　<atomic_expression> <no> <operator_noun> }
+    token operator_expression { <noun_operator_expression> | <verb_operator_expression> | <verb_operator_expression_infix> }
+    
+    token atomic_expression {  <number> | <identifier>   }
+    token list_expression { <atomic_expression> [ <list_operator> <atomic_expression> ]* }
+    token cons_list_expression { <variable> [ <cons> <variable> ]+ }
+    token cons { <interpunct> | <colon> }
+    token variable_list { <variable> [ <list_operator> <variable> ]* }
+    # I need to distinguish between verb expressions and noun expressions
+    # suppose I have x de x to x no seki , then it is shite (kudasai)
+    # suppose I have x de x ni x wo kakeru , then it should really be x de x ni x wo kakete (kudasai)
+    
+    token lambda { <aru> <variable_list> <de> <expression> }
+    # token lambda_application { <expression> 'を'　 [ <shite_kudasai> | <te_kudasai> | <sura> ]? }
+    token apply {<expression> [ <wo> | <no> ]　[ <identifier> || <lambda> ] [<shite_kudasai>||<sura>]? }
+    # token apply {<l3_expression> [ <wo> | <no> ]　 <identifier> }
+=begin pod
+    Problem: if atomic expressions are first, to stop loops, we never get to comparision expression
+    I assume this is because the string was consumed because the first rule matched
+    So we should order them so that they fail rather than match partially
+    
+    if we try to parse expression
+        first we try comparison_expression
+            which tries expression
+                which tries comparison_expression
+
+    So a way around this is to nest expression tokens so that they can't loop.
+
+    So in Haku, what does this mean? e.g. 
+    f (a==b) means apply contains a comparison
+    f a == f b means comparision contains an apply
+    
+    And of course we can have
+
+    f (f (f a )) 
+
+    But that could be solved by using parens
+    Same for
+    a==b == c==d, that needs parens too
+
+    Which means we can have categories 
+
+
+    
+=end pod    
+    token expression {
+                     
+        <lambda>    
+        || <apply>
+        || <comparison_expression>
+        || <atomic_expression>
+        # | <operator_expression> 
+        # | <list_expression>
+        # | <cons_list_expression>        
+    }
+
+    # token l2_expression {
+    #     | <apply>
+    #     | <l3_expression>
+    # }
+
+    # token l3_expression {
+    #     <atomic_expression>
+    # }
+
+    # token expression {
+    #       <non_apply_expression> 
+    #     | <apply>
+    # }
+    token comp_expression {
+        <identifier> [<comp> <identifier>]+
+    }
+    token range_expression {
+        <atomic_expression> <nyoro> <atomic_expression>
+    }
+
+    token comparison_expression {
+        <expression> <ga> <expression> 
+        [ <ni> <hitoshii> || <yori> [ <sukunai> || <ooi> ]  ]        
+    }
+
+    
+}
+
+
+# I am not happy with "Let is Expression". let should be part of the Expression grammar. Same for Maps and Folds and IfThen
+grammar Let is Expression does Punctuation  {
+    token TOP { <let_expression> }
+    token bind { <variable> <ha> <expression> <desu>? <delim> }
+    token bind_tara { <variable> <ga> <expression> <moshi_nanira> <delim>?　<ws>? }
+    
+    
     
 
     token moshi_let {
@@ -242,43 +382,32 @@ grammar Let is Expression does Punctuation  {
 
 grammar IfThen is Let {
     token ifthen {
-        <expression> <baaiha>  [<let_expression> | <expression>]
-        <soudenai> <baaiha> [<let_expression> | <expression>]
+        <expression> <baaiha>  [<let_expression> | <expression>] [<desu> [<ga> | <kedo> ]]? <comma>? <ws>?
+        <soudenai> <baaiha> <comma>? <ws>?　[<let_expression> | <expression>]
     }
-    token baaiha {'場合は'}
-    token soudenai {'そうでない'}
 }
 
-# grammar Maps {
-#     token map_expression {
-#         [ <variable> | <list_expression> | <range_expression> ] 
-#         [ <nokaku> <lambda> 
-#         |
-#         <nominnaga>　[ <identifier> | <comp_expression> ] 
-#         ]
-#         <wo> <shazou> 
-#     }
-#     token nokaku { 'の各' }
-#     token nominnaga { 'の皆が' }
-#     token shazou {
-#         '写像' <sura>
-#     }        
-# }
+grammar Maps {
+    token map_expression {
+        [ <variable> | <list_expression> | <range_expression> ] 
+        [ <nokaku> <lambda> 
+        |
+        <nominnaga>　[ <identifier> | <comp_expression> ] 
+        ]
+        <wo> <shazou> 
+    }
+   
+}
 
-# grammar Folds {
-#     token fold_expression {
-#         [ <variable> | <list_expression> | <range_expression> ] 
-#         <nominnaga>
-#         [ <operator_noun> | <identifier> | <verb> <no> ] <wo> <expression> <to_> <tatamu> 
-#     } 
-#     token nominnaga { 'の皆が' }
-#     token tatamu {
-#         '畳' <mu_endings>
-#     }
-#     token mu_endings {
-#         'む' | 'んで'  <kudasai>? | 'み' <masu>
-#     }
-# }
+grammar Folds {
+    token fold_expression {
+        [ <variable> | <list_expression> | <range_expression> ] 
+        <nominnaga>
+        [ <operator_noun> | <identifier> | <verb> <no> ] <wo> <expression> <to_> <tatamu> 
+    } 
+
+
+}
 
 grammar Function is Let does Auxiliaries does Punctuation { 
     # is Let {
@@ -287,15 +416,9 @@ grammar Function is Let does Auxiliaries does Punctuation {
         [ <verb> | <noun> ] <.toha>
         <variable_list> <.de>　<.ws>? [<let_expression> | <expression>]　<.function_end>
     }
-    token toha {
-        'とは'
-    }
 
-    token nokoto {
-        'のこと'
-    }
     token function_end {
-         <.ws>? <nokoto> <desu> <full_stop>
+         <.ws>? <no>? <koto> <desu> <full_stop>
     }
 }
 
@@ -313,7 +436,7 @@ grammar Haku is Function {
         <.function_end>                 
     }
 
-    token hontoha { '本とは' <.ws>? }
+
 }
 # say "Try parsing 六と七の積";
 # my $m = Expression.parse("六と七の積");
@@ -339,16 +462,20 @@ grammar Haku is Function {
 #     のことです。");#");#四十ニ"); # 
 # say $haku;
 
-my $f = Function.parse("加えるとはア達とサでア達が零に等しいのことです。"); #の長さ does not work as currently restricted to atomic expressions
+# my $f = Function.parse("加えるとはア達とサでア達が零に等しいのことです。"); #の長さ does not work as currently restricted to atomic expressions
 # に等しい
-# my $f = Expression.parse("ア達がサに等しい");
-say $f;
+#  my $c = Expression.parse("市者",:rule('noun'));
+#  say $c;
+# # my $f = Expression.parse("ア達がサに等しい",:rule('comparison_expression'));#
+# say $f;
+# my $f1 = Expression.subparse("ア達の長さがサに等しい");#
+# say $f1;
         # 場合は
         # サで、
         # そうでない場合は
-        #     もし
-        #         ア・アア達はア達だったら、
-        #         アア達とサ足すアを加える
+        # もし
+        # ア・アア達はア達だったら、
+        # アア達とサ足すアを加える
 
 
 # をエッフする。
