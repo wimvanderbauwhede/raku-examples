@@ -12,29 +12,48 @@ So what is the highest-level expression? That would be a let or an if-then;
 
 let is either "moshi ..." or "●..." so that can't be mistaken for if-then which must start with a condition. However, in principle that condition could be a let; I can save myself a world of trouble by not allowing this:
 - An `if-then` condition can be one of the following:
+
+    token condition_expression {    
+    <comparison_expression> |
+    <apply_expression> |   
+    <operator_expression> |
+    <parens_expression> |
     <atomic_expression>
-    <comparison_expression>
-    <apply>
-    and maybe
-    <operator_expression>
-    <parens_expression>
+    }
     
 - The next level is the RHS of a binding and the final return expression of the let. In principle, both of these should be allowed to contain their own let_expressions
 So it is rather crucial that
 
-expression = {
-<let_expression> |
-...
-
+token expression = {
+    <let_expression> |
+    <operator_expression> |
+    <apply_expression> |
+    <operator_expression> |
+    <parens_expression> |
+    <atomic_expression> 
 }
 
 should work. 
+
+So let's design that first
+
+token let_expression {
+    'let' <bind_expression>+ 'in' <expression>
+}
+
+token bind_expression {
+    <variable> '=' <expression>
+}
+
+
+
+
 
 Looking at the three others, 
 
 - comparison_expression cannot contain if-then or let in its sub-epxressions, so what remains are
     <atomic_expression>
-    <apply>
+    <apply_expression>
     <operator_expression>
     <parens_expression>
 
