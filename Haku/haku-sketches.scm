@@ -1,0 +1,11 @@
+#lang racket
+(define (main)
+  (let ([x 6] [y 7]) (println (* x y)))
+  (displayln 42)
+  (writeln (+ 1 (* 6 7)))
+  (println "haku" )
+  (println "白" )
+  (writeln "白" )
+  (displayln "白（はく）" )
+  )
+(main)
