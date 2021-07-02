@@ -21,7 +21,7 @@ grammar ListExpression {
     token kaku_parens_expression { <.open_kaku> <list_expression>  <.close_kaku> }
 
     # Without this, we can't do singleton lists
-    token kaku_parens_singleton_expression { <.open_kaku> <list_elt_expression>  <.close_kaku> }
+    token kaku_parens_singleton_expression { <.open_kaku> <list_elt_expression>?  <.close_kaku> }
 
     token list_elt_expression {
         <kaku_parens_expression> | 
@@ -43,5 +43,5 @@ say $lm;
 my $lm1 = ListExpression.parse("1,[[[x,var],vbr,[42,43]],0]");
 say $lm1;
 
-my $lm2 = ListExpression.parse("[x],1,[[[x,var],vbr,[42,43]],0],vvv,[[11]]");
+my $lm2 = ListExpression.parse("[x],1,[[[x,var],vbr,[42,43]],0],vvv,[[11]],[]");
 say $lm2;

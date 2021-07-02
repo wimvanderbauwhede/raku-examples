@@ -10,11 +10,13 @@ I call it 'haku', so it can be a pun on Haskell + Raku, or it can be the Haku fr
 
 role Characters {
     token reserved_kanji {
-        '開' | '閉' | '長' | '頭' | '尻' | '尾' | '或' |
+        '開' | '閉' | '長' | '頭' | '尻' | '尾' |
+        '或' |
         '和' | '差' | '積' | '除' |
         '足' | '引' | '掛' | '割' |
         '後' | '為' | '等' | '若' |
-        '本' | '見' | '合' | '割' | '書' | '読'
+        '本' | 
+        '見' | '合' | '割' | '書' | '読'
     }
 
     token kanji {  
@@ -22,13 +24,18 @@ role Characters {
         }    
 
     token katakana { 
-        <:Block('Katakana')> #  - [ ヲワカ ] >
-        # <[ア..ヲ]> 
+        <:Block('Katakana')> 
         }
 
     # I might allow A-Z as well for identifiers
     token romaji {
         <[A..Z]>
+    }
+    #     > "１".uniprop('Block');
+    # Halfwidth and Fullwidth Forms
+    # 算用数字
+    token sanyousuji {
+        '０' | '１' | '２' | '３' | '４' | '５' | '６' | '７' | '８' | '９'
     }
 
     token hiragana {
@@ -58,20 +65,20 @@ role Numbers {
 # I think I will use the full stop and semicolon as equivalent for newline.
 role Punctuation {
 
-    token full_stop { '。'}
-    token comma {'、'}
-    token semicolon {'；'}    
-    token colon {'：'}
+    token full_stop { '。' }
+    token comma { '、' }
+    token semicolon { '；' }    
+    token colon { '：' }
     token interpunct { '・' } # nakaguro
-    token punctuation {<full_stop> | <comma> | <semicolon> | <colon> }
-    token delim {<full_stop> | <comma> | <semicolon>  }
+    token punctuation { <full_stop> | <comma> | <semicolon> | <colon> }
+    token delim { <full_stop> | <comma> | <semicolon> }
 
-# ︵	U+FE35	1-1-42 包摂	&#xFE35;
-# &#65077;	始め小括弧、始め丸括弧
-# PRESENTATION FORM FOR VERTICAL LEFT PARENTHESIS
-# ︶	U+FE36	1-1-43 包摂	&#xFE36;
-# &#65078;	終わり小括弧、終わり丸括弧
-# PRESENTATION FORM FOR VERTICAL RIGHT PARENTHESIS
+    # ︵	U+FE35	1-1-42 包摂	&#xFE35;
+    # &#65077;	始め小括弧、始め丸括弧
+    # PRESENTATION FORM FOR VERTICAL LEFT PARENTHESIS
+    # ︶	U+FE36	1-1-43 包摂	&#xFE36;
+    # &#65078;	終わり小括弧、終わり丸括弧
+    # PRESENTATION FORM FOR VERTICAL RIGHT PARENTHESIS
 
     # Marukakko (丸括弧) 
     token open_maru { '（' }
@@ -80,19 +87,20 @@ role Punctuation {
     token open_nami { '｛' }
     token close_nami { '｝' }
 
-# ﹇	U+FE47	1-1-46 包摂	&#xFE47;
-# &#65095;	始め大括弧、始め角括弧
-# PRESENTATION FORM FOR VERTICAL LEFT SQUARE BRACKET
-# ﹈	U+FE48	1-1-47 包摂	&#xFE48;
-# &#65096;	終わり大括弧、終わり角括弧
-# PRESENTATION FORM FOR VERTICAL RIGHT SQUARE BRACKET
-# Kakukakko (角括弧)
+    # ﹇	U+FE47	1-1-46 包摂	&#xFE47;
+    # &#65095;	始め大括弧、始め角括弧
+    # PRESENTATION FORM FOR VERTICAL LEFT SQUARE BRACKET
+    # ﹈	U+FE48	1-1-47 包摂	&#xFE48;
+    # &#65096;	終わり大括弧、終わり角括弧
+    # PRESENTATION FORM FOR VERTICAL RIGHT SQUARE BRACKET
+
+    # Kakukakko (角括弧)
     token open_kaku { '［' }
     token close_kaku { '］' }
 
 #  etc, see https://ja.wikipedia.org/wiki/%E6%8B%AC%E5%BC%A7
 
-# sumitsukikakko (隅付き括弧)
+    # sumitsukikakko (隅付き括弧)
     token open_sumitsuki { '【　' }
     token close_sumitsuki { '】' }
 }

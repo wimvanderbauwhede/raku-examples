@@ -80,6 +80,36 @@ token list_elt_expression {
 
 token list_expression { <list_elt_expression> [ <list_operator> <list_elt_expression> ]+ }
 
+## Lists
+
+There is a difference between an argument list for a function, which can have one (or even zero) arguments, and a list datastructure which with my current syntax must have at least two elements.
+I introduce square brackets so we can have a list with a single element or no elements. 
+The brackets can be omitted when not necessary
+    lst = a,b
+    lst = [a,b] -- optional
+    lst = [a] -- necessary, otherwise not a list
+    lst = [] -- necessary, otherwise not a list
+    lst = a,[b,c] -- necessary for nested lists
+
+To append or prepend an element to a list I will simply use the list operator:
+    lst' = elt,lst
+    lst' = lst,elt
+This is a flattening operation so it appends or prepends. To get nesting, use []
+
+## Modules and imports
+
+加群のモジュル２
+輸入は
+    モジュル１から皆
+    ...
+です。｜で、｜である
+輸出は
+    ... the names of the functions to be exported, separated by comma or と
+です。｜で、｜である
+
+
+
+
 
 
 
