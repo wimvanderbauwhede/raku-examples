@@ -17,6 +17,7 @@ sub bind(Maybe \mx,\f --> Maybe ) {
 
 # return
 sub wrap(\x) { Just[x].new }
+sub return(\x) { wrap(x) }
 
 # A convenience function which unwraps Just and returns Nil for Nothing   
 sub unwrap(Maybe \mx) {
@@ -25,11 +26,23 @@ sub unwrap(Maybe \mx) {
         when Nothing { Nil }
     }
 }
+
+sub fromMaybe(\x, Maybe \mx) {
+    given  mx {
+        when Just { mx.just }
+        when Nothing { x }
+    }
+}
+
 # Let's create some nice operators.
 # This is >>= in Haskell
 sub infix:<⊳>( \mx,\f ) is assoc<left> {
     bind(mx,f)
 }
+sub infix:«>>=»( \mx,\f ) is assoc<left> {
+    bind(mx,f)
+}
+
 # This is return x >>= f
 sub infix:<⧐>( \x,\f ) is assoc<left> {
     bind(wrap(x),f)
@@ -60,7 +73,8 @@ my \h = sub (Real \x --> Maybe[Str]) {
 # And here is our final monadic computation    
 # The type signature works because returning Nil is not a type error
 sub comb_m(Int \x --> Str) {
-    ⧏ x ⧐ f ⊳ g ⊳ h
+    fromMaybe Nil, (return x) >>= f >>= g >>= h
+    # ⧏ x ⧐ f ⊳ g ⊳ h
 }
     
 say comb_m(42);
