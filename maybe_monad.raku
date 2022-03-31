@@ -25,14 +25,17 @@ sub unwrap(Maybe \mx) {
         when Nothing { Nil }
     }
 }
-# Let's create some nice operators
+# Let's create some nice operators.
+# This is >>= in Haskell
 sub infix:<⊳>( \mx,\f ) is assoc<left> {
     bind(mx,f)
 }
+# This is return x >>= f
 sub infix:<⧐>( \x,\f ) is assoc<left> {
     bind(wrap(x),f)
 }
  
+# This is a prefix operator because in postfix, it does not work without parentheses 
 sub prefix:<⧏>( \mx ) is looser(&infix:<⧐>) {
     unwrap(mx)
 }
