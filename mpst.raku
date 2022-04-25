@@ -11,13 +11,14 @@ I receive
 
 =end pod 
 # Create types for all states. This would be generated from the MPST description
-role ST0 {}
-role ST1 {}
-role ST2 {}
-role ST3 {}
-role ST4 {}
-role ST5 {}
-role ST6 {}
+# role ST0[Str \msg] { has Str $.arg=msg }
+role ST0 { has Str $._ }
+role ST1 { has Str $._ }
+role ST2 { has Str $._ }
+role ST3 { has Str $._ }
+role ST4 { has Str $._ }
+role ST5 { has Str $._ }
+role ST6 { has Str $._ }
 
 # An choice type. 
 role Either {}
@@ -44,19 +45,39 @@ sub nextState(::T1, ::T2 = Nil ) {
    }
 }
 
-my ST1 \st0 = nextState(ST0);
-my ST2 \st1 = nextState(ST1);
-my ST3 \st3 = nextState(ST2, Left);
-my ST4 \st4 = nextState(ST2, Right);
-
-sub send($msg,::ST, ::CHT = Nil) {
-   say "Sending $msg";
+sub typedNextState (\msg, ::ST, ::CHT = Nil ) {
+   do {
+      note  &?ROUTINE.name ~ " type error: " ~ msg.WHAT.raku ~ '=/=' ~ ST.new._.raku; 
+      exit 1
+   } unless msg ~~ ST.new._;      
    nextState(ST,CHT);
 }
+
+# my ST1 \st0 = nextState(ST0);
+# my ST2 \st1 = nextState(ST1);
+# my ST3 \st3 = nextState(ST2, Left);
+# my ST4 \st4 = nextState(ST2, Right);
+
+sub send(\msg,::ST, ::CHT = Nil) {
+   say "Sending {msg}";
+   # # We can check (at run time) if the type of msg is correct
+   # # by storing the type in the State type.
+   # do {
+   #    note  &?ROUTINE.name ~ " type error: " ~ msg.WHAT.raku ~ '=/=' ~ ST.new._.raku; 
+   #    exit 1
+   # } unless msg ~~ ST.new._;
+   # nextState(ST,CHT);
+   typedNextState(msg,ST,CHT);
+}
 sub recv(::ST, ::CHT = Nil) {   
-   my $msg = "World";
-   say "Receiving $msg";
-   (nextState(ST,CHT),$msg);
+   my Str \msg = "World";
+   say "Receiving {msg}";
+   # do {
+   #    note  &?ROUTINE.name ~ " type error: " ~ msg.WHAT.raku ~ '=/=' ~ ST.new._.raku; 
+   #    exit 1
+   # } unless msg ~~ ST.new._;   
+   # (nextState(ST,CHT),msg);
+   (typedNextState(msg,ST,CHT),msg);
 }
 sub cont(::ST, ::CHT = Nil) {
    nextState(ST,CHT);
@@ -73,7 +94,8 @@ sub getStatus(\msg) { state $st++;
 }
 sub getMsgText(\msg) {msg}
 
-my ST1 \st_1 = send("Hello",ST0);
+my \msg0="Hello";
+my ST1 \st_1 = send(msg0,ST0);#[Str]);
 my (ST2 \st_2,\msg) = recv(st_1);
 say msg;
 if (msg ne "") { # a valid message, send again
@@ -113,3 +135,4 @@ say $msg;
 } else {
 die "BOOM!"
 }
+
