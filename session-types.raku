@@ -1,5 +1,27 @@
 use v6;
-# Suppose I have a computation like this:
+
+=begin pod
+I think we can construct a session type with products and sums.
+
+data Session a = Seq [Session a] | Choice [Session a] | Send (a -> IO ()) | Recv a | Nothing
+
+The problem to get around is that the types for Send and Recv can be different
+
+For example,
+
+Seq [Send Req, Recv Resp] 
+
+What this means is that the a must be scoped per expression, so something like
+
+data Session = Seq [forall a. Session a]
+
+or should it be
+
+data Session = Seq [Session] | Choice [Session] | Send (forall a. a -> IO ()) | Recv (forall all a.a) | Nothing
+
+In Raku that is of course not a problem. But what about Rust?
+
+=end pod
 
 role V0[\v] {
     has Int $.v = v;
