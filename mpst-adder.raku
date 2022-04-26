@@ -71,6 +71,7 @@ sub recv(::ST, ::CHT = Nil) {
    my Int \msg = $add+0; #without the +0, \msg is a reference to $add!
    say "Receiving {msg}";
    $add=0; 
+   say "State in Recv: "~ST.raku;
    (typedNextState(msg,ST,CHT),msg);
 }
 sub cont(::ST, ::CHT = Nil) {
@@ -113,3 +114,36 @@ while $iter++ < n_iters {
 # my ST_Bye \st_bye2 = $st_0;
 say "Final state: " ~ $currentState.raku;
 say $res;
+
+say "\nTry without while\n";
+
+sub looper(\i,\r,\st,\b) {
+   sub (\w) {
+      w.(i,r,st,w)
+   }(b)
+}
+
+my Int \iter_init = 0;
+my Int \res_init = 1;
+my ST_While \st_init = ST_While;
+
+my (ST_Bye \st_fin, \res_fin) = looper(iter_init,res_init,st_init,
+   sub (\i,\r,\st,\f) {    
+      say "State: "~st.raku;
+      if i==n_iters {
+         say "End State: "~st.raku;
+         (cont(st,Stop),r)
+      } else {
+         my ST_Send_1 \st_0 = cont(st,Cont);
+         my ST_Send_2 \st_1 = send(r,st_0);
+         my ST_Recv \st_2 = send(inc,st_1);    
+         my (ST_While \st_3,\_res) = recv(st_2);    
+         
+         say "Result is {_res}\n";
+         say "State: "~st_3.raku;
+         f.(i+1,_res,st_3,f)
+      }
+   }
+);
+say "Final state: " ~ $currentState.raku;
+say res_fin;
