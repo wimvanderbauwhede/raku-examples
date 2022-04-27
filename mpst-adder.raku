@@ -1,5 +1,7 @@
 use v6;
 
+use experimental :macros;
+
 =begin pod
 
 global protocol Adder(role C, role S) {
@@ -15,11 +17,21 @@ global protocol Adder(role C, role S) {
 What would be really nice is if we had two threads for this.
 
 =end pod 
+
+sub error (\msg){
+   note 'ERROR: ' ~ msg;
+   # say Backtrace.new.Str;
+   exit 1;
+}
+
+role Send {}
+role Recv {}
+role None {}
 # Create types for all states. This would be generated from the MPST description
-role ST_While { has Int $._ }
-role ST_Send_1 { has Int $._ }
-role ST_Send_2 { has Int $._ }
-role ST_Recv { has Int $._ }
+role ST_While { has Int $._; has None $.trx }
+role ST_Send_1 { has Int $._; has Send $.trx; }
+role ST_Send_2 { has Int $._; has Send $.trx; }
+role ST_Recv { has Int $._; has Recv $.trx; }
 role ST_Bye { has Int $._ }
 
 # An choice type. 
@@ -37,15 +49,15 @@ sub nextState(::ST, ::CHT = Nil ) {
          given CHT {
             when Cont { ST_Send_1 }
             when Stop { ST_Bye }
-            when Nil { note "This state requires a choice: " ~ ST.raku; exit 1 }
-            default { note "Not a valid alternative: " ~ CHT.raku; exit 1 }
+            when Nil { error "This state requires a choice: " ~ ST.raku }
+            default { error "Not a valid alternative: " ~ CHT.raku }
          }
       }
       when ST_Send_1 { ST_Send_2 }
       when ST_Send_2 { ST_Recv }
       when ST_Recv { ST_While}
-      when ST_Bye { note "This is the final state, no further transitions"; exit 1}
-      default { note "Not a valid state: " ~ ST.raku ; exit 1}
+      when ST_Bye { error "This is the final state, no further transitions"}
+      default { error "Not a valid state: " ~ ST.raku }
    }
    }
    $currentState = nextState;
@@ -54,8 +66,7 @@ sub nextState(::ST, ::CHT = Nil ) {
 
 sub typedNextState (\msg, ::ST, ::CHT = Nil ) {
    do {
-      note  &?ROUTINE.name ~ " type error: " ~ msg.WHAT.raku ~ '=/=' ~ ST.new._.raku; 
-      exit 1
+      error  &?ROUTINE.name ~ ": " ~ msg.WHAT.raku ~ '=/=' ~ ST.new._.raku
    } unless msg ~~ ST.new._;      
    nextState(ST,CHT);
 }
@@ -65,13 +76,19 @@ our $add = 0;
 sub send(\msg,::ST, ::CHT = Nil) {
    say "Sending {msg}";
    $add+=msg;
+   do {
+      error  &?ROUTINE.name ~ ": " ~  ST.raku ~ " is not a Send state" ;
+   } unless ST.new.trx ~~ Send;     
    typedNextState(msg,ST,CHT);
 }
 sub recv(::ST, ::CHT = Nil) {   
-   my Int \msg = $add+0; #without the +0, \msg is a reference to $add!
+   my Int \msg = $add+0; #without the +0, \ms"g is a reference to $add!
    say "Receiving {msg}";
    $add=0; 
    say "State in Recv: "~ST.raku;
+   do {
+      error  &?ROUTINE.name ~ ": " ~  ST.raku ~ " is not a Recv state";
+   } unless ST.new.trx ~~ Recv;     
    (typedNextState(msg,ST,CHT),msg);
 }
 sub cont(::ST, ::CHT = Nil) {
@@ -117,18 +134,19 @@ say $res;
 
 say "\nTry without while\n";
 
-sub looper(\i,\r,\st,\b) {
+sub whilst(\args,\body) {
    sub (\w) {
-      w.(i,r,st,w)
-   }(b)
+      w.(args,w)
+   }(body)
 }
 
 my Int \iter_init = 0;
 my Int \res_init = 1;
 my ST_While \st_init = ST_While;
 
-my (ST_Bye \st_fin, \res_fin) = looper(iter_init,res_init,st_init,
-   sub (\i,\r,\st,\f) {    
+my (ST_Bye \st_fin, \res_fin) = whilst( [iter_init,res_init,st_init],
+   sub (\args,\f) {    
+      my (\i,\r,\st)= args;
       say "State: "~st.raku;
       if i==n_iters {
          say "End State: "~st.raku;
@@ -141,7 +159,7 @@ my (ST_Bye \st_fin, \res_fin) = looper(iter_init,res_init,st_init,
          
          say "Result is {_res}\n";
          say "State: "~st_3.raku;
-         f.(i+1,_res,st_3,f)
+         f.([i+1,_res,st_3],f)
       }
    }
 );
