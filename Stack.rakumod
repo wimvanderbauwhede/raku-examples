@@ -19,8 +19,9 @@ our sub infix:<∘>(\x, \y) is export {
         say 'pre elems:' ~ $Stack::uxn.wst.elems;
         map {@args.push($Stack::uxn.wst.pop)}, 1 .. &f.signature.arity;
         my \res = f(|@args) ;
-        
-        $Stack::uxn.wst.push(res);
+        if not (res ~~ Nil) {
+            $Stack::uxn.wst.push(res);
+        }
         say 'post elems:' ~ $Stack::uxn.wst.elems;
      } else {
          say 'const:' ~ y;
@@ -44,3 +45,10 @@ our sub DUP (\x ) is export {
     $Stack::uxn.wst.push(x); x
 }
 
+our sub POP (\x ) is export { 
+    Nil
+}
+
+our sub NIP (\x ) is export { 
+    $Stack::uxn.wst.pop; x
+}
