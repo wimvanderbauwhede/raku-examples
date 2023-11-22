@@ -27,9 +27,13 @@ sub error (\msg){
 role Send {}
 role Recv {}
 role None {}
+
+# For multi-party interactions, we need to identify the party to communicate with
+enum Party <Party1 Party2 NA>;
+
 # Create types for all states. This would be generated from the MPST description
-role ST_While { has Int $._; has None $.trx }
-role ST_Send_1 { has Int $._; has Send $.trx; }
+role ST_While { has Int $._; has None $.trx; has Party $.party = NA; }
+role ST_Send_1 { has Int $._; has Send $.trx; has Party $.part }
 role ST_Send_2 { has Int $._; has Send $.trx; }
 role ST_Recv { has Int $._; has Recv $.trx; }
 role ST_Bye { has Int $._ }
