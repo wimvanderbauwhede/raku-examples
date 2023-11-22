@@ -1,12 +1,13 @@
 use v6;
 use Stack;
 
-say _ 
-∘ 3 ∘ 2 ∘ 1 ∘ &INC ∘ &ADD ∘ &MUL ∘ 4 ∘ &f
-;
+
+my \res = ⟂ ∘ 3 ∘ 2 ∘ 1 ∘ &INC ∘ &ADD ∘ &MUL ∘ 4 ∘ &f ;
+
+say res;
 
 sub f( \x, \y ) {
-    _ ∘ &SUB
+    ⟂ ∘ x ∘  y ∘  &SUB ∘ 5 ∘ &MUL ∘ 2 ∘ &ADD 
 }
 
 

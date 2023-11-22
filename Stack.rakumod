@@ -5,16 +5,28 @@ use Uxn;
 $Stack::uxn = Uxn.new;
 
 constant \_ is export = Nil ;
+constant \ￌ is export = Nil;
+our sub term:<⟂>(--> Nil) is export { };
+
 
 our sub infix:<∘>(\x, \y) is export {
 
     if y ~~ Sub {
         my &f = y;
-        my \res = f(|$Stack::uxn.wst.reverse()[0..&f.signature.arity-1].reverse) ;
-        map {$Stack::uxn.wst.pop}, 1 .. &f.signature.arity;
-        $Stack::uxn.wst.push(res)
+        my @args;
+        say y.raku;
+        say 'ar:' ~ &f.signature.arity;
+        say 'pre elems:' ~ $Stack::uxn.wst.elems;
+        map {@args.push($Stack::uxn.wst.pop)}, 1 .. &f.signature.arity;
+        my \res = f(|@args) ;
+        
+        $Stack::uxn.wst.push(res);
+        say 'post elems:' ~ $Stack::uxn.wst.elems;
      } else {
-        $Stack::uxn.wst.push(y)
+         say 'const:' ~ y;
+          say 'pre elems:' ~ $Stack::uxn.wst.elems;
+        $Stack::uxn.wst.push(y);
+         say 'post elems:' ~ $Stack::uxn.wst.elems;
     }
     return $Stack::uxn.wst[0]
 }
@@ -28,4 +40,7 @@ our sub ADD ( \x, \y ) is export { x + y }
 our sub MUL( \x, \y ) is export { x * y }
 our sub SUB( \x, \y ) is export { x - y }
 
+our sub DUP (\x ) is export { 
+    $Stack::uxn.wst.push(x); x
+}
 
