@@ -1,15 +1,12 @@
 use v6;
 use Stack;
 
-
-
-Stack::_ 
-∘ 3 
-∘ 2 
-∘ 1 
-∘ &INC 
-∘ &ADD 
-∘ &MUL 
+say _ 
+∘ 3 ∘ 2 ∘ 1 ∘ &INC ∘ &ADD ∘ &MUL ∘ 4 ∘ &f
 ;
 
-say run;
+sub f( \x, \y ) {
+    _ ∘ &SUB
+}
+
+
