@@ -1,6 +1,19 @@
 use v6;
 use Stack;
 
+
+my \res0 =  4 ¬ 2 ¬ 2 ¬ &INC ¬ SWP ¬ NIP ¬ DUP ¬ &INC ¬ OVR ¬ POP ¬ ROT ¬ &ADD ¬ &MUL ¬ 4 ¬ &f2 ¬ &RET ;
+my \res0check = 42;
+say 'res0:' ~ res0;
+
+sub f2( \x, \y ) {
+    x ¬  y ¬  &SUB ¬ 5 ¬ &MUL ¬ 2 ¬ &ADD
+}
+
+die;
+
+
+
 my \res =  6 ¬ 4 ¬ 3 ¬ &ADD ¬ &MUL ¬ &RET ;
 say res;
 die;

@@ -8,12 +8,14 @@ constant \_ is export = Nil ;
 constant \ￌ is export = Nil;
 our sub term:<⟂>(--> Nil) is export { };
 
+enum StackManipOps is export <POP NIP DUP SWP OVR ROT> ;
+
 our sub infix:<¬>(\x, \y)  is export {
     state Int @wst = ();
     state Int @rst = ();
     state Bool $isFirst = True;
 
- if $isFirst and @wst.elems == 0 {
+    if $isFirst and @wst.elems == 0 {
         say 'first const:' ~ x ;
         say 'pre elems:' ~ @wst.elems;
         @wst.push(x);
@@ -21,7 +23,24 @@ our sub infix:<¬>(\x, \y)  is export {
         $Stack::uxn.isFirst = False;
     }
 
-    if y ~~ Sub {
+    if y ~~ StackManipOps {
+        say 'manip '~y~' pre:' ~ @wst.raku;
+        given y {
+            when POP { @wst.pop }
+            when NIP { my \e1 = @wst.pop; @wst.pop; @wst.push(e1) }
+            when DUP { my \e1 = @wst[*-1]; @wst.push(e1) }
+            when SWP { my \e1 = @wst.pop; my \e2 = @wst.pop; @wst.push(e1); @wst.push(e2)}
+            when OVR {  my \e2 = @wst[*-2]; @wst.push(e2)}
+            when ROT {
+                my \e1 = @wst.pop; 
+                my \e2 = @wst.pop; 
+                my \e3 = @wst.pop; 
+                @wst.push(e2); 
+                @wst.push(e1);
+                @wst.push(e3)}
+        }
+        say 'manip '~y~' post:' ~ @wst.raku;
+    } elsif y ~~ Sub {
         my &f = y;
         my @args;
         say 'NAME:' ~ &f.name;
@@ -30,11 +49,11 @@ our sub infix:<¬>(\x, \y)  is export {
         my $st = ($isOp and &f.name.substr(*-1) eq 'r' ) ?? @rst !! @wst;
         say &f.raku;
         say 'ar:' ~ &f.signature.arity;
-        say &f.name ~' pre elems:' ~ $st.elems;
+        say &f.name ~' pre:' ~ $st.raku;
         map {@args.push($st.pop)}, 1 .. &f.signature.arity;
         say @args.raku;
         my \res = f(|@args) ;
-        say &f.name ~' stack:' ~ $st.raku;
+        # say &f.name ~' stack:' ~ $st.raku;
         if $isOp and not (res ~~ Nil) {
             $st.push(res);
         } elsif $isRet {
@@ -42,7 +61,7 @@ our sub infix:<¬>(\x, \y)  is export {
             $isFirst = True;
             return res
         }
-        say &f.name ~' post elems:' ~ $st.raku;
+        say &f.name ~' post:' ~ $st.raku;
      } else {
         say 'const:' ~ y ~ ' (' ~ x ~')';
         say 'pre elems:' ~ @wst.elems;
@@ -126,3 +145,4 @@ our sub RET (\x)  is export {
 #     $Stack::uxn.wst=();
 #     return res;
 # }
+
