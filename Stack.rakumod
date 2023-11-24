@@ -9,8 +9,8 @@ constant \ￌ is export = Nil;
 our sub term:<⟂>(--> Nil) is export { };
 
 our sub infix:<¬>(\x, \y)  is export {
-    state Int @wst;
-    state Int @rst;
+    state Int @wst = ();
+    state Int @rst = ();
     state Bool $isFirst = True;
 
  if $isFirst and @wst.elems == 0 {
@@ -38,6 +38,8 @@ our sub infix:<¬>(\x, \y)  is export {
         if $isOp and not (res ~~ Nil) {
             $st.push(res);
         } elsif $isRet {
+            @wst=();
+            $isFirst = True;
             return res
         }
         say &f.name ~' post elems:' ~ $st.raku;
@@ -114,8 +116,8 @@ our sub ROT (\x,\y,\z) is export {
 
 our sub RET (\x)  is export {
     say 'RET:' ~ $Stack::uxn.wst.raku ~ ';' ~ x;
-    $Stack::uxn.wst=();
-    $Stack::uxn.isFirst = True;
+    # $Stack::uxn.wst=();
+    # $Stack::uxn.isFirst = True;
     return x
 }
 
