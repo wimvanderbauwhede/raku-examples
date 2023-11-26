@@ -1,7 +1,7 @@
 use v6;
 use Stack;
 
-my \res0 =  0 ∘ &f1 ∘ JSR ∘ BRK ;
+my \res0 =  1 ∘ &f1 ∘ JSR ∘ BRK ;
 # my \res0 =  4 ∘ 2 ∘ 2 ∘ INC ∘ SWP ∘ NIP ∘ DUP ∘ INC ∘ OVR ∘ POP ∘ ROT ∘ ADD ∘ MUL ∘ 4 ∘ &f2 ∘ RET ;
 my \res0check = 42;
 say 'res0:' ~ res0;

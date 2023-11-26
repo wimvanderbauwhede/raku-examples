@@ -9,8 +9,11 @@ constant \ￌ is export = Nil;
 our sub term:<⟂>(--> Nil) is export { };
 
 enum StackManipOps is export <POP NIP DUP SWP OVR ROT BRK> ;
+# missing: SFT AND ORA EOR EQU NEQ GTH LTH
 enum StackCalcOps is export <ADD SUB MUL INC DIV>;
+# missing: STH
 enum JumpOps is export <JSR JMP JCN RET>;
+# missing: LD*, ST*, DEI, DEO
 
 our sub infix:<∘>(\x, \y)  is export {
     state $prevCaller = 'None';
@@ -42,7 +45,7 @@ our sub infix:<∘>(\x, \y)  is export {
     #     Nil ∘ x;
     # }
 
-    if $isFirst and not (x ~~ Nil) { #and @wst.elems == 0
+    if $isFirst {#and not (x ~~ Nil) { #and @wst.elems == 0
         say 'first elt:' ~ x.raku ;
         say 'wst:' ~ @wst.raku;
         @wst.push(x);

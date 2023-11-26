@@ -34,15 +34,15 @@ By necessity, `∘` is a binary operator, but it will put only one element on th
 
 ## Returning the result
 
-To obtain a chain of calculations, the operator needs to put the result of every computation on the stack. This means that in the example, the result of `MUL` will be on the stack, and not returned to the program. To return the result, I introduce the `RET` opcode. On encountering this opcode, the value of the computation is returned and the stack is cleared. So a working example of the above code is
+To obtain a chain of calculations, the operator needs to put the result of every computation on the stack. This means that in the example, the result of `MUL` will be on the stack, and not returned to the program. To return the result, I slightly abuse Uxntal's `BRK` opcode. On encountering this opcode, the value of the computation is returned and the stack is cleared (in native Uxntal, `BRK` simply terminates the program). So a working example of the above code is
 
 ```perl6
-    my \res = 6 ∘ 4 ∘ 3 ∘ ADD ∘ MUL ∘ RET
+    my \res = 6 ∘ 4 ∘ 3 ∘ ADD ∘ MUL ∘ BRK
 ```
 
-## Abstraction with functions
+## Some abstraction with subroutines
 
-To allow abstraction of common functionality we can simply define custom functions:
+Uxntal allows to define subroutines. They are just blocks of code that you jump to. In my RakU implementation we can simply define custom subroutines and call them using the Uxntal instructions `JSR` (jump and return), `JMP` (jump and don't return, use for tail calls) and `JCN` (conditional jump).
 
 ```perl6
 my \res =  3 ¬ 2 ¬ 1 ¬ INC ¬ ADD ¬ MUL ¬ 4 ¬ &f ¬ JMP ;
@@ -52,18 +52,145 @@ sub f {
 }
 ```
 
-We use the signature to determine the number of arguments to pop off that stack. 
-[[ WV: is this necessary? Can we no do this simpler?]]
-
-[[ To do this right, I need to keep a stack of callers; it also means that I should call functions using
-
-&f JSR or &f JMP or &f JCN
-
-
-
-]]
-
-
 ## Stack manipulation operations
 
+One of the key features of a stack language is that it allows you to manipulate the stack. In Uxntal, there are several operations to duplicate, remove and reorder items on the stack. Here is a contrived example
+
+    my \res =  
+        4 ∘ 2 ∘ DUP ∘ INC ∘ # 4 2 3
+        OVR ∘  # 4 2 3 2
+        ROT ∘ # 4 3 2 2
+        ADD ∘ 2 ∘ ADD ∘ MUL ∘ BRK ; # 42
+
+Uxntal has more ALU operations as well as load and store operations to work with memory and special IO operations. It also has a second stack and operations to move data between stacks. I am omitting these for simplicity. 
+
 ## The mighty `∘` operator, part II: implementation
+
+With the above, we have enough requirements to design and implement the operator. As usual, I will eschew the use of objects. It was my intention to use all kind of fancy Raku features such as introspection but it turns out I don't need them. 
+
+We start by defining the Uxntal instructions as enums. I could use a single enum but grouping them makes their purpose clearer.
+
+```perl6
+enum StackManipOps is export <POP NIP DUP SWP OVR ROT BRK> ;
+enum StackCalcOps is export <ADD SUB MUL INC DIV>;
+enum JumpOps is export <JSR JMP JCN RET>;
+```
+
+We use a stateful custom operator with the stack `@wst` (working stack) as state. The operator returns the top of the stack and is left-associative. Anything that is not an Uxntal instruction is pushed onto the stack.
+
+```perl6
+our sub infix:<∘>(\x, \y)  is export {
+    state @wst = ();
+
+    if y ~~ StackManipOps {
+        given y {
+            when POP { ... }
+            ...
+        }
+    } elsif y ~~ StackCalcOps {
+        given y {
+            when INC { ... }
+            ...
+        }
+    } elsif y ~~ JumpOps {
+        given y {
+            when JSR { ... }
+            ...
+        }
+    } else {
+        @wst.push(y);
+    }
+
+    return @wst[0]
+}
+```
+
+This is not quite good enough: the operator is binary, but the above implementation ignores the first element. This is only relevant for the first element in a sequence. We handle this using a boolean state `$isFirst`. When `True`, we simply call the operator again with `Nil` as the first element.
+The `$isFirst` state is reset on every `BRK`.
+
+```perl6
+    state Bool $isFirst = True;
+    ...
+    if $isFirst {
+        @wst.push(x);
+        $isFirst = False;
+        Nil ∘ x
+    }
+```
+
+The final complication lies in the need to support conditional jumps. The problem is that in e.g.
+
+```perl6
+    &ft ∘ JCN ∘ &ff ∘ JMP
+```
+
+depending on the condition, `ft` or `ff` should be called. If `ft` is called, nothing after `JCN` should be executed. I solve this by introducing another boolean state variable, `$skipInstrs`, which is set to `True` when `JCN` is called with a true condition. 
+
+```perl6
+    when JCN {
+        my &f =  @wst.pop;
+        my $cond = @wst.pop;
+        if $cond>0 {
+            $isFirst = True;
+            f();
+            $skipInstrs = True;
+        }
+    }
+```
+
+The boolean is cleared on encountering a `JMP` or `RET`:
+
+```perl6
+    if $skipInstrs {
+        if (y ~~ JMP) or (y ~~ RET) {
+            $skipInstrs = False
+        }
+    } else {
+        ...
+    }
+```
+
+This completes the implementation of the operator `∘`. The final structure is:
+
+```perl6
+our sub infix:<∘>(\x, \y)  is export {
+    state @wst = ();
+    state Bool $isFirst = True;
+    state $skipInstrs = False;
+
+    if $skipInstrs {
+        if (y ~~ JMP) or (y ~~ RET) {
+            $skipInstrs = False
+        }
+    } else {
+
+        if $isFirst and not (x ~~ Nil) {
+            @wst.push(x);
+            $isFirst = False;
+            Nil ∘ x
+        }
+
+        if y ~~ StackManipOps {
+            given y {
+                when POP { ... }
+                ...
+            }
+        } elsif y ~~ StackCalcOps {
+            given y {
+                when INC { ... }
+                ...
+            }
+        } elsif y ~~ JumpOps {
+            given y {
+                when JSR { ... }
+                ...
+            }
+        } else {
+            @wst.push(y);
+        }
+    }
+    return @wst[0]
+}
+```
+
+To be support Uxntal in full, the main addition needed is the support for a return stack. This mostly requires creation of instructions with a `r` suffix and select between `@wst` and `@rst` based on the presence of this suffix. 
