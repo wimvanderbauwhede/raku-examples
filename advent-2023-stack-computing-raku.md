@@ -45,10 +45,10 @@ To obtain a chain of calculations, the operator needs to put the result of every
 To allow abstraction of common functionality we can simply define custom functions:
 
 ```perl6
-my \res =  3 ¬ 2 ¬ 1 ¬ INC ¬ ADD ¬ MUL ¬ 4 ¬ &f ¬ RET ;
+my \res =  3 ¬ 2 ¬ 1 ¬ INC ¬ ADD ¬ MUL ¬ 4 ¬ &f ¬ JMP ;
 
-sub f( \x, \y ) {
-    y ¬  x ¬  SUB ¬ 5 ¬ MUL ¬ 2 ¬ ADD
+sub f {
+    SUB ¬ 5 ¬ MUL ¬ 2 ¬ ADD ¬ RET
 }
 ```
 
