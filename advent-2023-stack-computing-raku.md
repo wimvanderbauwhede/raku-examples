@@ -12,7 +12,7 @@ An example of simple arithmetic in Uxntal is
     6 4 3 ADD MUL
 ```
 
-This should be self-explanatory: it is called postfix, stack-based or reverse Polish notation. In infix notation, that is `6*(4+3)`. In prefix notation, it's `MUL(6, ADD(4,3))`. The integer literals are pushed on a stack, and the operations pop however many arguments they need from the stack an push the result.
+This should be self-explanatory: it is called postfix, stack-based or reverse Polish notation. In infix notation, that is `6*(4+3)`. In prefix notation, it's `MUL(6, ADD(4,3))`. The integer literals are pushed on a stack, and the primitive operations `ADD` and `MUL` pop the arguments they need off the stack an push the result.
 
 ## The mighty `∘` operator, part I: definition
 
@@ -28,18 +28,9 @@ but I don't want to write an interpreter starting from strings. So instead, I wi
     6 ∘ 4 ∘ 3 ∘ ADD ∘ MUL
 ```
 
-`ADD` and `MUL` are functions and the operator either puts literals on the stack or calls the function on the values on the stack.
+The operator either puts literals on the stack or calls the operation on the values on the stack.
 
 By necessity, `∘` is a binary operator, but it will put only one element on the stack. I chose to have it process its second argument, and ignore the first one,because in that way it is easy to terminate the calculation. However, because of that, the first element of each sequence needs to be handled separately. As it can only be a literal, all we have to do is put it on the stack.
-
-## Defining the opcodes
-
-The functions in all caps are opcodes of the Uxn VM. They are plain functions, but I use a little trick to get rid of the `&`:
-
-```perl6
-    sub add ( \x, \y ) { x + y } 
-    constant \ADD = &add;
-```
 
 ## Returning the result
 
@@ -51,15 +42,26 @@ To obtain a chain of calculations, the operator needs to put the result of every
 
 ## Abstraction with functions
 
-Because `ADD` etc are plain functions, we can mix in custom functions easily:
+To allow abstraction of common functionality we can simply define custom functions:
 
 ```perl6
 my \res =  3 ¬ 2 ¬ 1 ¬ INC ¬ ADD ¬ MUL ¬ 4 ¬ &f ¬ RET ;
 
 sub f( \x, \y ) {
-    x ¬  y ¬  SUB ¬ 5 ¬ MUL ¬ 2 ¬ ADD
+    y ¬  x ¬  SUB ¬ 5 ¬ MUL ¬ 2 ¬ ADD
 }
 ```
+
+We use the signature to determine the number of arguments to pop off that stack. 
+[[ WV: is this necessary? Can we no do this simpler?]]
+
+[[ To do this right, I need to keep a stack of callers; it also means that I should call functions using
+
+&f JSR or &f JMP or &f JCN
+
+
+
+]]
 
 
 ## Stack manipulation operations
