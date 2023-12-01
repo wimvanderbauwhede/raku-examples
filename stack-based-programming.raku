@@ -41,7 +41,7 @@ use Uxn;
         }
 
         sub print-text { # str* --
-            &loop ∘ JSR2 ∘ POP2 ∘ RET
+            &loop ∘ JSR2 ∘ RET
         }
 
         sub loop {

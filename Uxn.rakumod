@@ -19,7 +19,7 @@ our sub infix:<∘>(\xx, \yy)  is export {
     # state @stash = ();
     state Bool $isFirst = True;
     state $skipInstrs = False;
-    say "CALL: ",yy.raku,'; @wst:',@wst.raku;
+    # say "CALL: ",yy.raku,'; @wst:',@wst.raku;
     if $skipInstrs {
         if yy ~~ JMP {
             $skipInstrs=False
@@ -87,8 +87,8 @@ our sub infix:<∘>(\xx, \yy)  is export {
             when JCN|JCN2 {
                 my &f =  @wst.pop;
                 my $cond = @wst.pop;
-                # say 'JCN:',&f.name,':',$cond;
-                if $cond ~~ Int and $cond>0 {
+                # say 'JCN:',&f.name,':',$cond.raku;
+                if (not ($cond ~~ Int)) or $cond>0 {
                     # say 'jmp '~y~' pop:' ~ @wst.raku;
                     $isFirst = True;
                     f();
@@ -132,7 +132,7 @@ our sub infix:<∘>(\xx, \yy)  is export {
     }
     }
     # say 'wst FIN :' ~ @wst.raku ; 
-    return @wst[*-1]
+    if @wst {return @wst[*-1]}
 
 }
 
@@ -177,12 +177,13 @@ sub calc_INC(\e1) {
 }
 
 sub calc_LDA(\addr) {
-    say "LDA: ",addr.raku;
+    # say "LDA: ",addr.raku;
     if addr ~~ Array {
         addr[0]
     }
     elsif addr ~~ List {
         my (\array, \idx) = calc_final_offset(addr,0);
+        # say "LDA: ",array, '[',idx,'] = ',array[idx];
         array[idx]
     }
 }
@@ -198,7 +199,7 @@ sub calc_STA(\val,\addr) {
 }
 
 sub calc_final_offset(List \addr,Int \offset --> List) {
-    
+    # say "calc_final_offset: addr: ", addr.raku,'; offset: ',offset;
         if addr.head ~~ Array {
             my List \res = (addr.head,addr.tail+offset);
             # say "calc_final_offset:",res;
@@ -209,7 +210,7 @@ sub calc_final_offset(List \addr,Int \offset --> List) {
 }
 
 sub calc_DEO(\arg,\port) {
-    say 'DEO:',arg.raku,':',port.raku;
+    # say 'DEO:',arg.raku,':',port.raku;
     if port != 0x18 {
         die "Only port 0x18 is supported.\n"
     }
