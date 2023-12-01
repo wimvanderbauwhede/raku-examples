@@ -1,8 +1,7 @@
 use v6;
 unit module Uxn;
 
-our @stash=();
-our $useStash = False;
+
 enum StackManipOps is export <POP NIP DUP SWP OVR ROT BRK POP2 DUP2> ;
 # missing: SFT AND ORA EOR EQU NEQ GTH LTH
 enum StackCalcOps is export <ADD SUB MUL INC DIV INC2>;
@@ -11,40 +10,39 @@ enum JumpOps is export <JSR JSR2 JMP JCN JCN2 RET>;
 # missing: LD*, ST*, DEI, DEO
 enum MemOps is export <LDA STA LDR STR LDZ STZ DEO>;
 
-our sub infix:<∘>(\x, \y)  is export {
+our sub infix:<∘>(\xx, \yy)  is export {
     state $prevCaller = 'None';
     state @wst = ();
     state @rst = ();
-    if $useStash {
-        $useStash = False;
-        @wst=@stash;
-    }
+    my @args = yy;
+
     # state @stash = ();
     state Bool $isFirst = True;
     state $skipInstrs = False;
-    say "CALL: ",x.raku,';',y.raku,';',@wst.raku," ***  ", @stash.raku;
+    say "CALL: ",yy.raku,'; @wst:',@wst.raku;
     if $skipInstrs {
-        if y ~~ JMP {
+        if yy ~~ JMP {
             $skipInstrs=False
-        } elsif y ~~ RET {
+        } elsif yy ~~ RET {
             $skipInstrs=False
         }
     } else {
 
     if $isFirst {
-        say "FIRST!";
-        say 'first elt:' ~ x.raku ;
-        say 'wst:' ~ @wst.raku;
-        @wst.push(x);
-        say 'wst post :' ~ @wst.raku ; 
+        # say "FIRST!";
+        # say 'first elt:' ~ x.raku ;
+        # say 'wst:' ~ @wst.raku;
+        # @wst.push(x);
+        # say 'wst post :' ~ @wst.raku ; 
         $isFirst = False;
-        @stash=@wst;
-        $useStash=True;
-        Nil ∘ x;
+        # @stash=@wst;
+        # $useStash=True;
+        # Nil ∘ x;
+        @args = xx,yy;
     }
-
+    for @args -> \y {
     if y ~~ StackManipOps {
-        say 'manip '~y~' pre:' ~ @wst.raku;
+        # say 'manip '~y~' pre:' ~ @wst.raku;
         given y {
             when POP|POP2 { @wst.pop }
             when NIP { my \e1 = @wst.pop; @wst.pop; @wst.push(e1) }
@@ -57,14 +55,14 @@ our sub infix:<∘>(\x, \y)  is export {
                 @wst.push(e2); @wst.push(e1); @wst.push(e3)
             }
             when BRK {
-                say 'BRK!';
+                # say 'BRK!';
                 my \res = @wst.pop;
                 @wst=();
                 $isFirst = True;
                 return res;
             }
         }
-        say 'manip '~y~' post:' ~ @wst.raku;
+        # say 'manip '~y~' post:' ~ @wst.raku;
     } elsif y ~~ StackCalcOps {
         # say 'calc '~y~' pre:' ~ @wst.raku;
 
@@ -82,15 +80,15 @@ our sub infix:<∘>(\x, \y)  is export {
             when JSR|JSR2 {
                 $isFirst = True;
                 my &f =  @wst.pop;
-                say &f.name;
-                say 'jmp '~y~' pop:' ~ @wst.raku;
+                # say &f.name;
+                # say 'jmp '~y~' pop:' ~ @wst.raku;
                 f();
             }
             when JCN|JCN2 {
                 my &f =  @wst.pop;
                 my $cond = @wst.pop;
                 # say 'JCN:',&f.name,':',$cond;
-                if $cond>0 {
+                if $cond ~~ Int and $cond>0 {
                     # say 'jmp '~y~' pop:' ~ @wst.raku;
                     $isFirst = True;
                     f();
@@ -132,8 +130,9 @@ our sub infix:<∘>(\x, \y)  is export {
         # say 'post :' ~ @wst.raku ; 
     }
     }
-    say 'wst FIN :' ~ @wst.raku ; 
-    return @wst[0]
+    }
+    # say 'wst FIN :' ~ @wst.raku ; 
+    return @wst[*-1]
 
 }
 
@@ -170,8 +169,8 @@ sub calc_INC(\e1) {
         e1 + 1
     }
     elsif e1 ~~ Array|List {
-        say 'INC ARRAY';
-        (e1,1)
+        # say 'INC ARRAY';
+        my List \res = (e1,1); res
     } else {
         die "Type error: ",e1.raku;
     }
@@ -199,15 +198,18 @@ sub calc_STA(\val,\addr) {
 }
 
 sub calc_final_offset(List \addr,Int \offset --> List) {
+    
         if addr.head ~~ Array {
-            (addr.head,addr.tail+offset)
+            my List \res = (addr.head,addr.tail+offset);
+            # say "calc_final_offset:",res;
+            res
         } else {
             calc_final_offset(addr.head,offset+addr.head.tail);
         }
 }
 
 sub calc_DEO(\arg,\port) {
-    # say 'DEO:',arg.raku,':',port.raku;
+    say 'DEO:',arg.raku,':',port.raku;
     if port != 0x18 {
         die "Only port 0x18 is supported.\n"
     }

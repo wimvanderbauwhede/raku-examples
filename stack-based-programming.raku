@@ -31,22 +31,19 @@ use Uxn;
 
 # say res3;
 
-        my @hello-word = "Hello World!", 0x0a,0x00;
+        my @hello-word = "Hello,",0x20,"World!", 0x0a,0x00;
 
         &hello ∘ JSR2 ∘ BRK;
 
 
         sub hello {
-            say "hello";
             @hello-word ∘ &print-text ∘ JSR2 ∘ RET; # ["Hello World!", 0x00]
         }
 
         sub print-text { # str* --
-            say "print-text";
             &loop ∘ JSR2 ∘ POP2 ∘ RET
         }
 
         sub loop {
-            say "loop";
             DUP2 ∘ LDA ∘ 0x18 ∘ DEO ∘ INC2 ∘ DUP2 ∘ LDA ∘ &loop ∘ JCN2 ∘ RET;
         }
