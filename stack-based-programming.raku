@@ -31,13 +31,13 @@ my \res3 = @a ∘ 1 ∘ ADD ∘ LDA ∘ DUP ∘ ADD ∘ 2 ∘ SUB ∘ BRK;
 
 say res3;
 
-my @hello-word = "Hello,",0x20,"World!", 0x0a,0x00;
+# my @hello-word = "Hello,",0x20,"World!", 0x0a,0x00;
 
 &hello ∘ JSR2 ∘ 
 BRK;
 
 sub hello {
-    @hello-word ∘ &print-text ∘ JSR2 ∘ 
+    (hello-world) ∘ &print-text ∘ JSR2 ∘ 
     RET;
 }
 
@@ -51,3 +51,5 @@ sub loop {
     INC2 ∘ DUP2 ∘ LDA ∘ &loop ∘ JCN2 ∘ 
     RET;
 }
+
+sub hello-world { ["Hello,",0x20,"World!", 0x0a,0x00] }

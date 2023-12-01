@@ -1,0 +1,20 @@
+%RET { JMP2r }
+
+|0100
+;hello JSR2 
+BRK
+
+@hello 
+    ;hello-word ;print-text JSR2 
+    RET
+
+@print-text ( str* -- )
+    ;loop JSR2 
+    RET
+
+@loop
+    DUP2 LDA #18 DEO 
+    INC2 DUP2 LDA ;loop JCN2 
+    RET
+
+@hello-word "Hello," 20 "World!" 0a 00
