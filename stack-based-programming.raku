@@ -31,19 +31,23 @@ my \res3 = @a ∘ 1 ∘ ADD ∘ LDA ∘ DUP ∘ ADD ∘ 2 ∘ SUB ∘ BRK;
 
 say res3;
 
-        my @hello-word = "Hello,",0x20,"World!", 0x0a,0x00;
+my @hello-word = "Hello,",0x20,"World!", 0x0a,0x00;
 
-        &hello ∘ JSR2 ∘ BRK;
+&hello ∘ JSR2 ∘ 
+BRK;
 
+sub hello {
+    @hello-word ∘ &print-text ∘ JSR2 ∘ 
+    RET;
+}
 
-        sub hello {
-            @hello-word ∘ &print-text ∘ JSR2 ∘ RET; # ["Hello World!", 0x00]
-        }
+sub print-text { # str* --
+    &loop ∘ JSR2 ∘ 
+    RET
+}
 
-        sub print-text { # str* --
-            &loop ∘ JSR2 ∘ RET
-        }
-
-        sub loop {
-            DUP2 ∘ LDA ∘ 0x18 ∘ DEO ∘ INC2 ∘ DUP2 ∘ LDA ∘ &loop ∘ JCN2 ∘ RET;
-        }
+sub loop {
+    DUP2 ∘ LDA ∘ 0x18 ∘ DEO ∘ 
+    INC2 ∘ DUP2 ∘ LDA ∘ &loop ∘ JCN2 ∘ 
+    RET;
+}
